@@ -1,0 +1,8 @@
+// John Keech, UIN:819000713, CSCE 438 - HW2
+
+message LSPMessage
+{
+    required uint32 connid=1; // Connection ID
+    required uint32 seqnum=2; // Sequence Num
+    required bytes payload=3; // Payload
+}
