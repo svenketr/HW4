@@ -1,4 +1,4 @@
-CC = g++
+CC = gcc
 TARGET = server request worker
 DEBUG = #-g
 CFLAGS = -Wall -c $(DEBUG)
@@ -25,8 +25,15 @@ lspmessage.pb.o: lspmessage.pb.cc
 %.o: %.cpp
 	$(CC) $(CFLAGS) $<
 
+lsp_rpc.h: lsp_rpc.x
+	rpcgen -m lsp_rpc.x -o lsp_rpc_svc.c
+	rpcgen -l lsp_rpc.x -o lsp_rpc_clnt.c
+	rpcgen -h lsp_rpc.x -o lsp_rpc.h
+	rpcgen -c lsp_rpc.x -o lsp_rpc_xdr.c
+
 clean:
 	rm -f *.o 
 	rm -f lspmessage.pb.h lspmessage.pb.cc
 	rm -f $(TARGET)
 	rm -f *~
+	rm -f lsp_rpc_svc.* lsp_rpc_clnt.* lsp_rpc.h lsp_rpc_xdr.*
