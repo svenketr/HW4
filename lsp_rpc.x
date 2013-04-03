@@ -1,7 +1,7 @@
 struct message {
 	int connid;
 	int seqnum;
-	byte payload<>;		
+	char payload<>;
 };
 
 
