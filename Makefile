@@ -40,4 +40,4 @@ clean:
 	rm -f $(TARGET)
 	rm -f *~
 	rm -f lsp_rpc_svc.* lsp_rpc_clnt.* lsp_rpc.h lsp_rpc_xdr.*
-	rm Makefile.lsp_rpc
+	rm -f Makefile.lsp_rpc
