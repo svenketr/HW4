@@ -4,12 +4,7 @@
 double epoch_delay = _EPOCH_LTH; // number of seconds between epochs
 unsigned int num_epochs = _EPOCH_CNT; // number of epochs that are allowed to pass before a connection is terminated
 
-void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
-{
-	msg->connid = lspmsg->connid();
-	msg->seqnum = lspmsg->seqnum();
-	strcpy(msg->payload, lspmsg->payload().c_str());
-}
+
 
 
 /*
@@ -41,6 +36,12 @@ void lsp_set_drop_rate(double rate){
 /*
  *				CLIENT RELATED FUNCTIONS
  */  
+void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
+{
+	msg->connid = lspmsg->connid();
+	msg->seqnum = lspmsg->seqnum();
+	strcpy(msg->payload, lspmsg->payload().c_str());
+}
 
 lsp_client* lsp_client_create(const char* dest, int port){
     lsp_client *client = new lsp_client();
@@ -232,6 +233,7 @@ void* ClientReadThread(void *params){
         // attempt to read
         sockaddr_in addr;
         message* _msg = rpc_read(client->clnt, client->connection->id);
+
         LSPMessage *msg = network_read_message(client->connection, 0.5,&addr);
         if(msg) {
             if(msg->connid() == client->connection->id){
@@ -368,6 +370,7 @@ bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
 	rpc_write(clnt, msg);
 
     return true;
+
 }
 
 int rpc_write(CLIENT *clnt, message& outmsg)

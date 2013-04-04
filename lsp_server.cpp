@@ -1,5 +1,4 @@
 #include "lsp_server.h"
-#include "lsp_rpc.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,6 +39,15 @@ void lsp_set_drop_rate(double rate){
  *
  *
  */  
+void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
+{
+	msg->connid = lspmsg->connid();
+	msg->seqnum = lspmsg->seqnum();
+	strcpy(msg->payload, lspmsg->payload().c_str());
+}
+
+// A global variable to hold the server information
+lsp_server *server_ptr;
 
 // Create a server listening on a specified port.
 // Returns NULL if server cannot be created
@@ -86,6 +94,7 @@ lsp_server* lsp_server_create(int port){
 		lsp_server_close(server,0);
 		return NULL;
 	}
+	server_ptr = server;
 
 	return server;
 }
@@ -364,6 +373,83 @@ void* ServerWriteThread(void *params){
 	return NULL;
 }
 
+
+void rpc_receive(message *msg)
+{
+	char host[128];
+
+	pthread_mutex_lock(&(server_ptr->mutex));
+	if(!server_ptr->running)
+		return;
+	pthread_mutex_unlock(&(server_ptr->mutex));
+
+	sockaddr_in addr;
+	if(msg) {
+		// we got a message, let's parse it
+		pthread_mutex_lock(&(server_ptr->mutex));
+		if(msg->connid == 0 && msg->seqnum == 0 && strlen(msg->payload) == 0){
+			// connection request, if first time, make the connection
+			sprintf(host,"%s:%d",inet_ntoa(addr.sin_addr),addr.sin_port);
+			if(server_ptr->connections.count(host) == 0){
+				// this is the first time we've seen this host, add it to the server's list of seen hosts
+				server_ptr->connections.insert(host);
+
+				if(DEBUG) printf("Connection request received from %s\n",host);
+
+				// build up the new connection object
+				Connection *conn = new Connection();
+				conn->status = CONNECTED;
+				conn->id = server_ptr->nextConnID;
+				server_ptr->nextConnID++;
+				conn->lastSentSeq = 0;
+				conn->lastReceivedSeq = 0;
+				conn->epochsSinceLastMessage = 0;
+				conn->fd = server_ptr->connection->fd; // send through the server's socket
+				conn->addr = new sockaddr_in();
+				memcpy(conn->addr,&addr,sizeof(addr));
+
+				// send an ack for the connection request
+				//network_acknowledge(conn);
+
+				// insert this connection into the list of connections
+				server_ptr->clients.insert(std::pair<int,Connection*>(conn->id,conn));
+			}
+		} else {
+			if(server_ptr->clients.count(msg->connid) == 0){
+				printf("Bogus connection id received: %d, skipping message...\n",msg->connid);
+			} else {
+				Connection *conn = server_ptr->clients[msg->connid];
+
+				// reset counter for epochs since we have received a message
+				conn->epochsSinceLastMessage = 0;
+
+				if(strlen(msg->payload) == 0){
+					// we received an ACK
+					if(DEBUG) printf("Server received an ACK for conn %d msg %d\n",msg->connid,msg->seqnum);
+					if(msg->seqnum == (conn->lastReceivedAck + 1))
+						conn->lastReceivedAck = msg->seqnum;
+					if(conn->outbox.size() > 0 && msg->seqnum == conn->outbox.front()->seqnum()) {
+						delete conn->outbox.front();
+						conn->outbox.pop();
+					}
+				} else {
+					// data packet
+					if(DEBUG) printf("Server received msg %d for conn %d\n",msg->seqnum,msg->connid);
+					if(msg->seqnum == (conn->lastReceivedSeq + 1)){
+						// next in the list
+						conn->lastReceivedSeq++;
+						//XXX server_ptr->inbox.push(msg);
+
+						// send ack for this message
+						network_acknowledge(conn);
+					}
+				}
+			}
+		}
+		pthread_mutex_unlock(&(server_ptr->mutex));
+	}
+}
+
 bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
 {
 	printf("multithread bhai !@Received\n");
@@ -377,12 +463,10 @@ bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
 
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
-	static int  result = 7542;
+	static int  result ;
 
 	if(DEBUG) printf("Received: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
-	/*
-	 * insert server code here
-	 */
+
 
 	return &result;
 }
@@ -396,11 +480,14 @@ message* send_1_svc(int *argp, struct svc_req *rqstp)
 {
 	static message  result;
 
-	printf("Send\n");
-	/*
-	 * insert server code here
-	 */
+	printf("Send Called for %d\n",*argp);
 
+	if(server_ptr->clients.find(*argp) == server_ptr->clients.end())
+		return NULL;
+	Connection * c= server_ptr->clients.find(*argp)->second;
+	if(c->outbox.empty())
+		return NULL;
+	convert_lspmsg2msg(c->outbox.front(),&result);
 	return &result;
 }
 

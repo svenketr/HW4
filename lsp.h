@@ -23,6 +23,6 @@ void lsp_set_epoch_cnt(int cnt);
 // Set fraction of packets that get dropped along each connection
 void lsp_set_drop_rate(double rate);
 
-void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg);
+
 
 #endif

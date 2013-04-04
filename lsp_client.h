@@ -1,6 +1,6 @@
 #pragma once
 #include "lsp.h"
-#include "lsp_rpc.h"
+
 
 typedef struct {
     Connection              *connection;
