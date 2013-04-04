@@ -30,5 +30,3 @@ void* ServerEpochThread(void *params);
 void* ServerReadThread(void *params);
 void* ServerWriteThread(void *params);
 void cleanup_connection(Connection *s);
-
-extern void server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);

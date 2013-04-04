@@ -364,6 +364,10 @@ void* ServerWriteThread(void *params){
 	return NULL;
 }
 
+extern "C" void
+server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
+
+
 void* ServerRpcThread(void *params){
 	lsp_server *server = (lsp_server*)params;
 	register SVCXPRT *transp;

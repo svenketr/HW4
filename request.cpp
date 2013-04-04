@@ -1,9 +1,41 @@
 #include <iostream>
+
+#include "lsp_rpc.h"
 #include "lsp_client.h"
+
+int rpc_test(int argc, char** argv)
+{
+	CLIENT *clnt;
+	message  out;  /* outgoing parameters */
+	int *result; /* return value */
+
+	char host[] = "localhost";
+
+	clnt = clnt_create(host, SERVER_PROG, SERVER_VERS, "udp");
+	if (clnt == NULL) {
+		clnt_pcreateerror(host);
+		exit(1);
+	}
+
+	out.connid = 372;
+	out.seqnum = 1234;
+
+	result = receive_1(&out, clnt);	/* call the remote function */
+
+	/* test if the RPC succeeded */
+	if (result == NULL) {
+		clnt_perror(clnt, "call failed:");
+		exit(1);
+	}
+
+	printf("function returned: \"%s\"\n", *result);
+	clnt_destroy( clnt );
+}
 
 int main(int argc, char* argv[]){
     // randomization seed requested by Dr. Stoleru
     srand(12345);
+    rpc_test(argc, argv);
     
     if(argc != 4) {
         printf("Usage: ./request host:port hash len\n");

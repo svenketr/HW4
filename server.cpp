@@ -23,6 +23,7 @@ receive_1_svc(message *argp, struct svc_req *rqstp)
 {
 	static int  result;
 
+	printf("Received\n");
 	/*
 	 * insert server code here
 	 */
@@ -35,6 +36,7 @@ send_1_svc(int *argp, struct svc_req *rqstp)
 {
 	static message  result;
 
+	printf("Send\n");
 	/*
 	 * insert server code here
 	 */

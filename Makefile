@@ -1,16 +1,16 @@
 CC = gcc
 TARGET = server request worker
-DEBUG = #-g
+DEBUG = -g
 CFLAGS = -Wall -c $(DEBUG)
 LFLAGS = $(DEBUG)
 LIBS = -lprotobuf -lpthread -lssl -lcrypto
 
 all: pre-build $(TARGET)
 
-pre-build:
+pre-build: lsp_rpc.h
 	protoc --cpp_out=. lspmessage.proto
     
-request: lsp_client.o lspmessage.pb.o network.o
+request: lsp_client.o lspmessage.pb.o network.o lsp_rpc_clnt.o lsp_rpc_xdr.o
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
 worker: lsp_client.o lspmessage.pb.o network.o
