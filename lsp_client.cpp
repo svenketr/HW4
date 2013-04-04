@@ -1,3 +1,4 @@
+#include "lsp_rpc.h"
 #include "lsp_client.h"
 
 double epoch_delay = _EPOCH_LTH; // number of seconds between epochs
@@ -30,11 +31,7 @@ void lsp_set_drop_rate(double rate){
 
 
 /*
- *
- *
  *				CLIENT RELATED FUNCTIONS
- *
- *
  */  
 
 lsp_client* lsp_client_create(const char* dest, int port){
@@ -323,3 +320,34 @@ void cleanup_connection(Connection *s){
     delete s;
 }
     
+int rpc_test(int argc, char** argv)
+{
+	CLIENT *clnt;
+	message  out;  /* outgoing parameters */
+	int* ret_val = new int;
+	bool_t result; /* return value */
+
+
+	char host[] = "localhost";
+
+	clnt = clnt_create(host, SERVER_PROG, SERVER_VERS, "udp");
+	if (clnt == NULL) {
+		clnt_pcreateerror(host);
+		exit(1);
+	}
+
+	out.connid = 372;
+	out.seqnum = 1234;
+	strcpy(out.payload,"hello");
+
+	ret_val = receive_1(&out, clnt);	/* call the remote function */
+
+	/* test if the RPC succeeded */
+	if (ret_val == NULL) {
+		clnt_perror(clnt, "call failed:");
+		exit(1);
+	}
+
+	printf("function returned: %d\n", *ret_val);
+	clnt_destroy( clnt );
+}

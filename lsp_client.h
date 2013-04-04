@@ -23,3 +23,4 @@ void* ClientWriteThread(void *params);
 void cleanup_connection(Connection *s);
 void cleanup_client(lsp_client *client);
 
+int rpc_test(int argc, char** argv);

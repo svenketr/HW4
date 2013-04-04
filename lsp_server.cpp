@@ -364,9 +364,20 @@ void* ServerWriteThread(void *params){
 	return NULL;
 }
 
+bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
+{
+	printf("async bhai !@Received\n");
+	*ret_val = 932;
+	while (1)
+	{
+
+	}
+	return true;
+}
+
 int* receive_1_svc(message *argp, struct svc_req *rqstp)
 {
-	static int  result;
+	static int  result = 7542;
 
 	printf("Received\n");
 	/*
@@ -374,6 +385,11 @@ int* receive_1_svc(message *argp, struct svc_req *rqstp)
 	 */
 
 	return &result;
+}
+
+bool_t send_1_svc(int *argp, message * ret_val, struct svc_req *rqstp)
+{
+	return true;
 }
 
 message* send_1_svc(int *argp, struct svc_req *rqstp)
@@ -388,8 +404,19 @@ message* send_1_svc(int *argp, struct svc_req *rqstp)
 	return &result;
 }
 
-extern "C" void
-server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
+extern "C" void server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
+
+int
+server_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
+{
+    xdr_free (xdr_result, result);
+
+    /*
+     * Insert additional freeing code here, if needed
+     */
+
+    return 1;
+}
 
 void* ServerRpcThread(void *params){
 	lsp_server *server = (lsp_server*)params;
