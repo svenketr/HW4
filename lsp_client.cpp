@@ -195,6 +195,7 @@ void* ClientEpochThread(void *params){
             // resend the first message in the outbox, if any
             if(client->connection->outbox.size() > 0) {
                 if(DEBUG) printf("Client resending msg %d\n",client->connection->outbox.front()->seqnum());
+                rpc_send_message(client->clnt, client->connection->outbox.front());
                 network_send_message(client->connection,client->connection->outbox.front());
             }
         } else {
@@ -230,6 +231,7 @@ void* ClientReadThread(void *params){
         
         // attempt to read
         sockaddr_in addr;
+        message* _msg = rpc_read(client->clnt, client->connection->id);
         LSPMessage *msg = network_read_message(client->connection, 0.5,&addr);
         if(msg) {
             if(msg->connid() == client->connection->id){
@@ -293,9 +295,7 @@ void* ClientWriteThread(void *params){
             // we have received an ack for the last message, and we haven't sent the
             // next one out yet, so if it exists, let's send it now
             if(client->connection->outbox.size() > 0) {
-            	message msg;
-            	convert_lspmsg2msg(client->connection->outbox.front(),&msg);
-            	rpc_write(client->clnt, msg);
+            	rpc_send_message(client->clnt, client->connection->outbox.front());
                 network_send_message(client->connection,client->connection->outbox.front());
                 lastSent = client->connection->outbox.front()->seqnum();
             }                
@@ -344,30 +344,35 @@ int rpc_init(CLIENT* &clnt, const char* host)
 	return 0;
 }
 
-int rpc_read(CLIENT *clnt, message* inmsg)
+message* rpc_read(CLIENT *clnt, int connid)
 {
-	int connid = 10;
+    while(true){
+    	message* inmsg = send_1(&connid, clnt);
+    	if(inmsg != NULL)
+    	{
+    		/* process the message */
+    		return inmsg;
+    	}
+    	usleep(10000);
+    }
+}
 
-	while(1)
-	{
-		inmsg = send_1(&connid, clnt);
-		usleep(10000);
-		if(inmsg != NULL)
-		{
-			/* process the message */
-		}
-	}
-	return 0;
+bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
+{
+    // sends an LSP Message
+    if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
+    		lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
+
+    message msg;
+    convert_lspmsg2msg(lspmsg, &msg);
+	rpc_write(clnt, msg);
+
+    return true;
 }
 
 int rpc_write(CLIENT *clnt, message& outmsg)
 {
 	int* ret_val;
-
-	outmsg.connid = 372;
-	outmsg.seqnum = 1234;
-	strcpy(outmsg.payload,"hello");
-
 	ret_val = receive_1(&outmsg, clnt);	/* call the remote function */
 
 	/* test if the RPC succeeded */
@@ -376,7 +381,7 @@ int rpc_write(CLIENT *clnt, message& outmsg)
 		exit(1);
 	}
 
-	printf("function returned: %d\n", *ret_val);
+	printf("rpc_write done: %d\n", *ret_val);
 	return 0;
 }
 

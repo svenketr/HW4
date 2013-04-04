@@ -27,6 +27,7 @@ void cleanup_connection(Connection *s);
 void cleanup_client(lsp_client *client);
 
 int rpc_init(CLIENT*& clnt, const char* host);
-int rpc_read(CLIENT *clnt, message* inmsg);
+message* rpc_read(CLIENT *clnt, int connid);
+bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg);
 int rpc_write(CLIENT *clnt, message& outmsg);
 int rpc_destroy(CLIENT *clnt);

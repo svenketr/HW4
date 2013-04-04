@@ -406,8 +406,7 @@ message* send_1_svc(int *argp, struct svc_req *rqstp)
 
 extern "C" void server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
-int
-server_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
+int server_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
 {
     xdr_free (xdr_result, result);
 
