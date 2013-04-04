@@ -3,7 +3,7 @@
 #ifndef DATATYPES_H
 #define DATATYPES_H
 
-#define DEBUG false
+#define DEBUG true
 
 #include <stdio.h>
 #include <stdlib.h>

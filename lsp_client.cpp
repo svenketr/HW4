@@ -4,6 +4,14 @@
 double epoch_delay = _EPOCH_LTH; // number of seconds between epochs
 unsigned int num_epochs = _EPOCH_CNT; // number of epochs that are allowed to pass before a connection is terminated
 
+void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
+{
+	msg->connid = lspmsg->connid();
+	msg->seqnum = lspmsg->seqnum();
+	strcpy(msg->payload, lspmsg->payload().c_str());
+}
+
+
 /*
  *
  *
@@ -80,7 +88,10 @@ lsp_client* lsp_client_create(const char* dest, int port){
             return NULL;
         }
         
+        rpc_init(client->clnt, dest);
+
         pthread_mutex_unlock(&(client->mutex));
+
         return client;
     } else {
         // connection failed or timeout after K * delta seconds
@@ -282,6 +293,9 @@ void* ClientWriteThread(void *params){
             // we have received an ack for the last message, and we haven't sent the
             // next one out yet, so if it exists, let's send it now
             if(client->connection->outbox.size() > 0) {
+            	message msg;
+            	convert_lspmsg2msg(client->connection->outbox.front(),&msg);
+            	rpc_write(client->clnt, msg);
                 network_send_message(client->connection,client->connection->outbox.front());
                 lastSent = client->connection->outbox.front()->seqnum();
             }                
@@ -320,27 +334,41 @@ void cleanup_connection(Connection *s){
     delete s;
 }
     
-int rpc_test(int argc, char** argv)
+int rpc_init(CLIENT* &clnt, const char* host)
 {
-	CLIENT *clnt;
-	message  out;  /* outgoing parameters */
-	int* ret_val = new int;
-	bool_t result; /* return value */
-
-
-	char host[] = "localhost";
-
 	clnt = clnt_create(host, SERVER_PROG, SERVER_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror(host);
 		exit(1);
 	}
+	return 0;
+}
 
-	out.connid = 372;
-	out.seqnum = 1234;
-	strcpy(out.payload,"hello");
+int rpc_read(CLIENT *clnt, message* inmsg)
+{
+	int connid = 10;
 
-	ret_val = receive_1(&out, clnt);	/* call the remote function */
+	while(1)
+	{
+		inmsg = send_1(&connid, clnt);
+		usleep(10000);
+		if(inmsg != NULL)
+		{
+			/* process the message */
+		}
+	}
+	return 0;
+}
+
+int rpc_write(CLIENT *clnt, message& outmsg)
+{
+	int* ret_val;
+
+	outmsg.connid = 372;
+	outmsg.seqnum = 1234;
+	strcpy(outmsg.payload,"hello");
+
+	ret_val = receive_1(&outmsg, clnt);	/* call the remote function */
 
 	/* test if the RPC succeeded */
 	if (ret_val == NULL) {
@@ -349,5 +377,12 @@ int rpc_test(int argc, char** argv)
 	}
 
 	printf("function returned: %d\n", *ret_val);
-	clnt_destroy( clnt );
+	return 0;
 }
+
+int rpc_destroy(CLIENT *clnt)
+{
+	clnt_destroy( clnt );
+	return 0;
+}
+

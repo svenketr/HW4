@@ -366,7 +366,7 @@ void* ServerWriteThread(void *params){
 
 bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
 {
-	printf("async bhai !@Received\n");
+	printf("multithread bhai !@Received\n");
 	*ret_val = 932;
 	while (1)
 	{
@@ -375,11 +375,11 @@ bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
 	return true;
 }
 
-int* receive_1_svc(message *argp, struct svc_req *rqstp)
+int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
 	static int  result = 7542;
 
-	printf("Received\n");
+	if(DEBUG) printf("Received: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
 	/*
 	 * insert server code here
 	 */

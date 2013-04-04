@@ -5,7 +5,6 @@
 int main(int argc, char* argv[]){
     // randomization seed requested by Dr. Stoleru
     srand(12345);
-    rpc_test(argc, argv);
     
     if(argc != 4) {
         printf("Usage: ./request host:port hash len\n");

@@ -1,5 +1,6 @@
 #pragma once
 #include "lsp.h"
+#include "lsp_rpc.h"
 
 typedef struct {
     Connection              *connection;
@@ -8,6 +9,8 @@ typedef struct {
     pthread_t               readThread;
     pthread_t               writeThread;
     pthread_t               epochThread;
+
+    CLIENT 					*clnt;
 } lsp_client;
 
 // API Methods
@@ -23,4 +26,7 @@ void* ClientWriteThread(void *params);
 void cleanup_connection(Connection *s);
 void cleanup_client(lsp_client *client);
 
-int rpc_test(int argc, char** argv);
+int rpc_init(CLIENT*& clnt, const char* host);
+int rpc_read(CLIENT *clnt, message* inmsg);
+int rpc_write(CLIENT *clnt, message& outmsg);
+int rpc_destroy(CLIENT *clnt);
