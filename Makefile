@@ -7,13 +7,13 @@ LIBS = -lprotobuf -lpthread -lssl -lcrypto
 
 all: pre-build $(TARGET)
 
-pre-build: lsp_rpc.h
+pre-build: rpcfiles
 	protoc --cpp_out=. lspmessage.proto
     
-request: lsp_client.o lspmessage.pb.o network.o lsp_rpc_clnt.o lsp_rpc_xdr.o
+request: lsp_client.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_clnt.o
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
-worker: lsp_client.o lspmessage.pb.o network.o
+worker: lsp_client.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_clnt.o
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
 server: lsp_server.o lspmessage.pb.o network.o lsp_rpc_svc.o lsp_rpc_xdr.o
@@ -21,13 +21,24 @@ server: lsp_server.o lspmessage.pb.o network.o lsp_rpc_svc.o lsp_rpc_xdr.o
 
 lspmessage.pb.o: lspmessage.pb.cc
 	$(CC) $(CFLAGS) $<
+
+lsp_rpc_svc.o: lsp_rpc_svc.c 
+	$(CC) $(CFLAGS) $<
+	
+lsp_rpc_clnt.o: lsp_rpc_clnt.c
+	$(CC) $(CFLAGS) $<
+
+lsp_rpc_xdr.o: lsp_rpc_xdr.c
+	$(CC) $(CFLAGS) $<
     
 %.o: %.c
 	$(CC) $(CFLAGS) $<
     
 %.o: %.cpp
 	$(CC) $(CFLAGS) $<
-	
+
+rpcfiles: lsp_rpc.h
+
 lsp_rpc.h: lsp_rpc.x
 	rpcgen -m lsp_rpc.x -o lsp_rpc_svc.c
 	rpcgen -l lsp_rpc.x -o lsp_rpc_clnt.c

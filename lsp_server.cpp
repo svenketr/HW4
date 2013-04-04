@@ -364,9 +364,32 @@ void* ServerWriteThread(void *params){
 	return NULL;
 }
 
+int* receive_1_svc(message *argp, struct svc_req *rqstp)
+{
+	static int  result;
+
+	printf("Received\n");
+	/*
+	 * insert server code here
+	 */
+
+	return &result;
+}
+
+message* send_1_svc(int *argp, struct svc_req *rqstp)
+{
+	static message  result;
+
+	printf("Send\n");
+	/*
+	 * insert server code here
+	 */
+
+	return &result;
+}
+
 extern "C" void
 server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
-
 
 void* ServerRpcThread(void *params){
 	lsp_server *server = (lsp_server*)params;

@@ -19,6 +19,7 @@ int rpc_test(int argc, char** argv)
 
 	out.connid = 372;
 	out.seqnum = 1234;
+	strcpy(out.payload,"hello");
 
 	result = receive_1(&out, clnt);	/* call the remote function */
 
