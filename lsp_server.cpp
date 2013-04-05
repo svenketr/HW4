@@ -455,24 +455,12 @@ int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
 	static int  result ;
 
-	if(DEBUG) printf("Received: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
+	if(DEBUG) printf("Received on server: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
 
 
 	return &result;
 }
 
-extern "C" void lsp_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
-
-int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
-{
-    xdr_free (xdr_result, result);
-
-    /*
-     * Insert additional freeing code here, if needed
-     */
-
-    return 1;
-}
 
 void* ServerRpcThread(void *params){
 	lsp_server *server = (lsp_server*)params;

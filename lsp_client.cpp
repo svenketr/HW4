@@ -370,7 +370,6 @@ bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
 	rpc_write(clnt, msg);
 
     return true;
-
 }
 
 
@@ -394,4 +393,15 @@ int rpc_destroy(CLIENT *clnt)
 	clnt_destroy( clnt );
 	return 0;
 }
+
+int* receive_1_svc(message *msg, struct svc_req *rqstp)
+{
+	static int  result ;
+
+	if(DEBUG) printf("Received on client: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
+
+
+	return &result;
+}
+
 

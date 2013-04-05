@@ -23,6 +23,9 @@ void lsp_set_epoch_cnt(int cnt);
 // Set fraction of packets that get dropped along each connection
 void lsp_set_drop_rate(double rate);
 
+extern "C" void lsp_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
+
+int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result);
 
 
 #endif
