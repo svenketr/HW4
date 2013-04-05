@@ -388,10 +388,7 @@ int rpc_receive(message *msg)
 						conn->lastReceivedSeq++;
 						//XXX server_ptr->inbox.push(msg);
 
-						LSPMessage* m = new LSPMessage();
-						convert_msg2lspmsg(rpc_acknowledge(conn), m);
-						// send an ack for the connection request
-						conn->outbox.push(m);
+						rpc_acknowledge(conn);
 					}
 				}
 			}
@@ -427,9 +424,7 @@ bool rpc_send_message(Connection* conn, LSPMessage *lspmsg)
 
     message msg;
     convert_lspmsg2msg(lspmsg, &msg);
-	rpc_write(conn, msg);
-
-    return true;
+	return rpc_write(conn, msg) != NULL;
 }
 
 
@@ -440,14 +435,13 @@ int rpc_write(Connection* conn, message& outmsg)
 	if(conn->clnt)
 	{
 		ret_val = receive_1(&outmsg, conn->clnt);	/* call the remote function */
+		/* test if the RPC succeeded */
+		if (ret_val == NULL) {
+			clnt_perror(conn->clnt, "call failed:");
+			return -1;
+		}
+		printf("rpc_write done: %d\n", *ret_val);
 	}
-	/* test if the RPC succeeded */
-	if (ret_val == NULL) {
-		clnt_perror(conn->clnt, "call failed:");
-		return -1;
-	}
-
-	printf("rpc_write done: %d\n", *ret_val);
 	return *ret_val;
 }
 
