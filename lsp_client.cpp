@@ -334,6 +334,7 @@ void cleanup_connection(Connection *s){
 void* ClientRpcThread(void *params){
 	lsp_client *client = (lsp_client*)params;
 
+	assert (client->connection->id > 0);
 	int prog_no = LSP_PROG + client->connection->id;
 
 	register SVCXPRT *transp;
@@ -367,7 +368,7 @@ void* ClientRpcThread(void *params){
 
 // send a connection request
 bool rpc_send_conn_req(lsp_client* client){
-    LSPMessage *msg = network_build_message(0,0,NULL,0);
+    LSPMessage *msg = network_build_message(0, 0, NULL, 0);
     if(network_send_message(client->connection,msg)) {
     	client->connection->status = CONNECT_SENT;
         return true;
@@ -451,5 +452,4 @@ int* receive_1_svc(message *msg, struct svc_req *rqstp)
 
 	return &result;
 }
-
 

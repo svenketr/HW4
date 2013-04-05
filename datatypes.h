@@ -18,6 +18,7 @@
 #include <set>
 #include <pthread.h>
 #include <unistd.h>
+#include <assert.h>
 
 #include "lspmessage.pb.h"
 #include "lsp_rpc.h"

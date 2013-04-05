@@ -15,13 +15,13 @@ message* rpc_acknowledge(Connection *conn){
     return msg;
 }
 
-message* rpc_build_message(int id, int seq, uint8_t *pld, int len){
-    // create the LSPMessage data structure and fill it in
-
+message* rpc_build_message(int id, int seq, uint8_t *pld, int len)
+{
     message *msg = new message();
 
     msg->connid = id;
     msg->seqnum = seq;
-    strcpy(msg->payload,(char*)pld);
+    memcpy(msg->payload, pld, len);
+
     return msg;
 }
