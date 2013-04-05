@@ -450,16 +450,6 @@ void rpc_receive(message *msg)
 	}
 }
 
-bool_t receive_1_svc(message* argp, int* ret_val, struct svc_req *rqstp)
-{
-	printf("multithread bhai !@Received\n");
-	*ret_val = 932;
-	while (1)
-	{
-
-	}
-	return true;
-}
 
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
@@ -471,29 +461,9 @@ int* receive_1_svc(message *msg, struct svc_req *rqstp)
 	return &result;
 }
 
-bool_t send_1_svc(int *argp, message * ret_val, struct svc_req *rqstp)
-{
-	return true;
-}
+extern "C" void lsp_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
-message* send_1_svc(int *argp, struct svc_req *rqstp)
-{
-	static message  result;
-
-	printf("Send Called for %d\n",*argp);
-
-	if(server_ptr->clients.find(*argp) == server_ptr->clients.end())
-		return NULL;
-	Connection * c= server_ptr->clients.find(*argp)->second;
-	if(c->outbox.empty())
-		return NULL;
-	convert_lspmsg2msg(c->outbox.front(),&result);
-	return &result;
-}
-
-extern "C" void server_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
-
-int server_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
+int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result)
 {
     xdr_free (xdr_result, result);
 
@@ -508,14 +478,14 @@ void* ServerRpcThread(void *params){
 	lsp_server *server = (lsp_server*)params;
 	register SVCXPRT *transp;
 
-	pmap_unset (SERVER_PROG, SERVER_VERS);
+	pmap_unset (LSP_PROG, LSP_VERS);
 
 	transp = svcudp_create(RPC_ANYSOCK);
 	if (transp == NULL) {
 		fprintf (stderr, "%s", "cannot create udp service.");
 		exit(1);
 	}
-	if (!svc_register(transp, SERVER_PROG, SERVER_VERS, server_prog_1, IPPROTO_UDP)) {
+	if (!svc_register(transp, LSP_PROG, LSP_VERS, lsp_prog_1, IPPROTO_UDP)) {
 		fprintf (stderr, "%s", "unable to register (TEST_PROG, TEST_VERS, udp).");
 		exit(1);
 	}
@@ -525,7 +495,7 @@ void* ServerRpcThread(void *params){
 		fprintf (stderr, "%s", "cannot create tcp service.");
 		exit(1);
 	}
-	if (!svc_register(transp, SERVER_PROG, SERVER_VERS, server_prog_1, IPPROTO_TCP)) {
+	if (!svc_register(transp, LSP_PROG, LSP_VERS, lsp_prog_1, IPPROTO_TCP)) {
 		fprintf (stderr, "%s", "unable to register (TEST_PROG, TEST_VERS, tcp).");
 		exit(1);
 	}

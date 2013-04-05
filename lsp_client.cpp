@@ -338,7 +338,7 @@ void cleanup_connection(Connection *s){
     
 int rpc_init(CLIENT* &clnt, const char* host)
 {
-	clnt = clnt_create(host, SERVER_PROG, SERVER_VERS, "udp");
+	clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
 	if (clnt == NULL) {
 		clnt_pcreateerror(host);
 		exit(1);
@@ -348,15 +348,15 @@ int rpc_init(CLIENT* &clnt, const char* host)
 
 message* rpc_read(CLIENT *clnt, int connid)
 {
-    while(true){
-    	message* inmsg = send_1(&connid, clnt);
-    	if(inmsg != NULL)
-    	{
-    		/* process the message */
-    		return inmsg;
-    	}
-    	usleep(10000);
-    }
+//    while(true){
+//    	message* inmsg = send_1(&connid, clnt);
+//    	if(inmsg != NULL)
+//    	{
+//    		/* process the message */
+//    		return inmsg;
+//    	}
+//    	usleep(10000);
+//    }
 }
 
 bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
@@ -372,6 +372,7 @@ bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
     return true;
 
 }
+
 
 int rpc_write(CLIENT *clnt, message& outmsg)
 {

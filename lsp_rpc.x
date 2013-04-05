@@ -5,9 +5,8 @@ struct message {
 };
 
 
-program SERVER_PROG {
-	version SERVER_VERS {
-		int receive(message)  = 1;
-		message send(int connid) = 2;
+program LSP_PROG {
+	version LSP_VERS {
+		int receive(message) = 1;
 	} = 1;
-} = 0x33388858;	
+} = 0x33378858;	
