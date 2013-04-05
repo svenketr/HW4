@@ -9,4 +9,4 @@ program LSP_PROG {
 	version LSP_VERS {
 		int receive(message) = 1;
 	} = 1;
-} = 0x33378858;	
+} = 0x33278858;	

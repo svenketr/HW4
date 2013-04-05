@@ -32,10 +32,10 @@ void* ServerWriteThread(void *params);
 void cleanup_connection(Connection *s);
 
 
-int rpc_init(CLIENT* &clnt, int connId );
+int rpc_init(Connection* conn, int connId );
 message* rpc_read(CLIENT *clnt, int connid);
-bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg);
-int rpc_write(CLIENT *clnt, message& outmsg);
+bool rpc_send_message(Connection* conn, LSPMessage *lspmsg);
+int rpc_write(Connection* conn, message& outmsg);
 int rpc_destroy(CLIENT *clnt);
 
 int rpc_receive(message *msg);

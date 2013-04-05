@@ -88,11 +88,6 @@ lsp_client* lsp_client_create(const char* dest, int port){
 
 		// kick off ReadThread to catch incoming messages
 		int res;
-		if((res = pthread_create(&(client->readThread), NULL, ClientReadThread, (void*)client)) != 0){
-			printf("Error: Failed to start the read thread: %d\n",res);
-			lsp_client_close(client);
-			return NULL;
-		}
 		if((res = pthread_create(&(client->writeThread), NULL, ClientWriteThread, (void*)client)) != 0){
 			printf("Error: Failed to start the write thread: %d\n",res);
 			lsp_client_close(client);
@@ -106,6 +101,7 @@ lsp_client* lsp_client_create(const char* dest, int port){
 
 		pthread_mutex_unlock(&(client->mutex));
 
+		client_ptr = client;
 		return client;
 	} else {
 		// connection failed or timeout after K * delta seconds
@@ -232,66 +228,6 @@ void* ClientEpochThread(void *params){
 	return NULL;
 }
 
-void* ClientReadThread(void *params){
-	lsp_client *client = (lsp_client*)params;
-
-	// continuously poll for new messages and process them;
-	// Exit when the client is disconnected
-	while(true){
-		pthread_mutex_lock(&(client->mutex));
-		Status state = client->connection->status;
-		pthread_mutex_unlock(&(client->mutex));
-
-		if(state == DISCONNECTED)
-			break;
-
-		// attempt to read
-		sockaddr_in addr;
-		message* _msg = rpc_read(client->connection->clnt, client->connection->id);
-
-	    LSPMessage *msg = new LSPMessage();
-	    convert_msg2lspmsg(_msg, msg);
-	    delete _msg;
-
-		if(msg) {
-			if(msg->connid() == client->connection->id){
-				pthread_mutex_lock(&(client->mutex));
-
-				// reset counter for epochs since we have received a message
-				client->connection->epochsSinceLastMessage = 0;
-
-				if(msg->payload().length() == 0){
-					// we received an ACK
-					if(DEBUG) printf("Client received an ACK for msg %d\n",msg->seqnum());
-					if(msg->seqnum() == (client->connection->lastReceivedAck + 1)){
-						// this sequence number is next in line, even if it overflows
-						client->connection->lastReceivedAck = msg->seqnum();
-					}
-					if(client->connection->outbox.size() > 0 && msg->seqnum() == client->connection->outbox.front()->seqnum()) {
-						delete client->connection->outbox.front();
-						client->connection->outbox.pop();
-					}
-				} else {
-					// data packet
-					if(DEBUG) printf("Client received msg %d\n",msg->seqnum());
-					if(msg->seqnum() == (client->connection->lastReceivedSeq + 1)){
-						// next in the list
-						client->connection->lastReceivedSeq++;
-						client->inbox.push(msg);
-
-						// send ack for this message
-						rpc_acknowledge(client->connection);
-					}
-				}
-
-				pthread_mutex_unlock(&(client->mutex));
-			}
-		}
-	}
-	if(DEBUG) printf("Read Thread exiting\n");
-	return NULL;
-}
-
 // this write thread will ensure that messages can be sent/received faster than only
 // on epoch boundaries. It will continuously poll for messages that are eligible to
 // bet sent for the first time, and then send them out.
@@ -385,6 +321,8 @@ void* ClientRpcThread(void *params){
 		exit(1);
 	}
 
+	if(DEBUG) printf ("Registered:: connid: %d, prog_no: %d\n", client->connection->id,
+			prog_no);
 	svc_run ();
 	fprintf (stderr, "%s", "svc_run returned");
 	return NULL;
@@ -413,19 +351,6 @@ int rpc_init(CLIENT* &clnt, const char* host)
 		exit(1);
 	}
 	return 0;
-}
-
-message* rpc_read(CLIENT *clnt, int connid)
-{
-	//    while(true){
-	//    	message* inmsg = send_1(&connid, clnt);
-	//    	if(inmsg != NULL)
-	//    	{
-	//    		/* process the message */
-	//    		return inmsg;
-	//    	}
-	//    	usleep(10000);
-	//    }
 }
 
 message* rpc_acknowledge(Connection *conn){
@@ -469,38 +394,54 @@ int rpc_destroy(CLIENT *clnt)
 	return 0;
 }
 
-int rpc_receive(message *msg)
+int rpc_receive(message *_msg)
 {
-	unsigned int lastSent = 0;
 
-	while(true){
+    LSPMessage *msg = new LSPMessage();
+    convert_msg2lspmsg(_msg, msg);
+
+	if(msg->connid() == client_ptr->connection->id){
 		pthread_mutex_lock(&(client_ptr->mutex));
-		Status state = client_ptr->connection->status;
 
-		if(state == DISCONNECTED)
-			break;
+		// reset counter for epochs since we have received a message
 
-		unsigned int nextToSend = client_ptr->connection->lastReceivedAck + 1;
-		if(nextToSend > lastSent){
-			// we have received an ack for the last message, and we haven't sent the
-			// next one out yet, so if it exists, let's send it now
-			if(client_ptr->connection->outbox.size() > 0) {
-				rpc_send_message(client_ptr->connection->clnt, client_ptr->connection->outbox.front());
-				lastSent = client_ptr->connection->outbox.front()->seqnum();
+		client_ptr->connection->epochsSinceLastMessage = 0;
+
+		if(msg->payload().length() == 0){
+			// we received an ACK
+			if(DEBUG) printf("Client received an ACK for msg %d\n",msg->seqnum());
+			if(msg->seqnum() == (client_ptr->connection->lastReceivedAck + 1)){
+				// this sequence number is next in line, even if it overflows
+				client_ptr->connection->lastReceivedAck = msg->seqnum();
+			}
+			if(client_ptr->connection->outbox.size() > 0 && msg->seqnum() == client_ptr->connection->outbox.front()->seqnum()) {
+				delete client_ptr->connection->outbox.front();
+				client_ptr->connection->outbox.pop();
+			}
+		} else {
+			// data packet
+			if(DEBUG) printf("Client received msg %d\n",msg->seqnum());
+			if(msg->seqnum() == (client_ptr->connection->lastReceivedSeq + 1)){
+				// next in the list
+				client_ptr->connection->lastReceivedSeq++;
+				client_ptr->inbox.push(msg);
+
+				// send ack for this message
+				rpc_acknowledge(client_ptr->connection);
 			}
 		}
+
 		pthread_mutex_unlock(&(client_ptr->mutex));
-		usleep(5000); // 5ms
 	}
-	pthread_mutex_unlock(&(client_ptr->mutex));
-	return client_ptr->connection->id;
+	return 0;
 }
 
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
 	static int  result ;
 
-	if(DEBUG) printf("Received on client: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
+	if(DEBUG) printf("Received on client: conn: %d, seqnum: %d pld: %s \n",
+			msg->connid, msg->seqnum, msg->payload);
 
 	result = rpc_receive(msg);
 	return &result;
