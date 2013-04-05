@@ -320,7 +320,10 @@ int rpc_receive(message *msg)
 
 	pthread_mutex_lock(&(server_ptr->mutex));
 	if(!server_ptr->running)
+	{
+		pthread_mutex_unlock(&(server_ptr->mutex));
 		return 0;
+	}
 	pthread_mutex_unlock(&(server_ptr->mutex));
 	int connId = -1;
 	sockaddr_in addr;
@@ -346,16 +349,6 @@ int rpc_receive(message *msg)
 				conn->lastReceivedSeq = 0;
 				conn->epochsSinceLastMessage = 0;
 				conn->fd = server_ptr->connection->fd; // send through the server's socket
-				conn->addr = new sockaddr_in();
-
-				memcpy(conn->addr,&addr,sizeof(addr));
-
-				msg->connid = conn->id;
-				LSPMessage *_msg = new LSPMessage();
-				convert_msg2lspmsg(msg, _msg);
-
-				// send an ack for the connection request
-				conn->outbox.push(_msg);
 
 				// insert this connection into the list of connections
 				server_ptr->clients.insert(std::pair<int,Connection*>(conn->id,conn));
@@ -386,7 +379,10 @@ int rpc_receive(message *msg)
 					if(msg->seqnum == (conn->lastReceivedSeq + 1)){
 						// next in the list
 						conn->lastReceivedSeq++;
-						//XXX server_ptr->inbox.push(msg);
+
+                        LSPMessage *_msg = new LSPMessage();
+                        convert_msg2lspmsg(msg, _msg);
+                        server_ptr->inbox.push(_msg);
 
 						rpc_acknowledge(conn);
 					}
@@ -404,6 +400,7 @@ int rpc_init(Connection* conn, int connId )
 		assert (connId > 0);
 		if(DEBUG) printf("rpc_init:: connid: %d, prog_no: %d\n", connId, LSP_PROG + connId);
 		conn->clnt = clnt_create("localhost", LSP_PROG + connId, LSP_VERS, "udp");
+		if (DEBUG && conn->clnt == NULL) printf("rpc_init:: failed\n");
 //		++(conn->epochsSinceLastMessage);
 //		clnt_pcreateerror("localhost");
 	}
@@ -424,12 +421,12 @@ bool rpc_send_message(Connection* conn, LSPMessage *lspmsg)
 
     message msg;
     convert_lspmsg2msg(lspmsg, &msg);
-	return rpc_write(conn, msg) != NULL;
+	return rpc_write(conn, msg) != 0;
 }
-
 
 int rpc_write(Connection* conn, message& outmsg)
 {
+
 	rpc_init(conn, outmsg.connid);
 	int* ret_val = NULL;
 	if(conn->clnt)
@@ -438,11 +435,11 @@ int rpc_write(Connection* conn, message& outmsg)
 		/* test if the RPC succeeded */
 		if (ret_val == NULL) {
 			clnt_perror(conn->clnt, "call failed:");
-			return -1;
+			return 0;
 		}
-		printf("rpc_write done: %d\n", *ret_val);
+		if(ret_val && DEBUG) printf("rpc_write done: %d\n", *ret_val);
 	}
-	return *ret_val;
+	return ret_val == NULL? 0 : *ret_val;
 }
 
 int rpc_destroy(CLIENT *clnt)
@@ -451,13 +448,29 @@ int rpc_destroy(CLIENT *clnt)
 	return 0;
 }
 
+void* rpc_acknowledge_async(void *params){
+	sleep(2);
+	rpc_acknowledge(server_ptr->clients[*((int*) params)]);
+	return NULL;
+}
+
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
 	static int  result ;
 
 	if(DEBUG) printf("Received on server: conn: %d, seqnum: %d pld: %s \n",
 			msg->connid, msg->seqnum, msg->payload);
+
+	pthread_t t;
 	result = rpc_receive(msg);
+	if (msg->connid == 0 && msg->seqnum == 0 && strlen(msg->payload) == 0)
+	{
+		int res;
+		if((res = pthread_create(&t, NULL, rpc_acknowledge_async, (void*) &result)) != 0){
+			printf("Error: Failed to start the rpc_acknowledge_async thread: %d\n",res);
+			return NULL;
+		}
+	}
 
 	return &result;
 }

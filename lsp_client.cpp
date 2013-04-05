@@ -54,6 +54,7 @@ lsp_client* lsp_client_create(const char* dest, int port){
 	pthread_mutex_init(&(client->mutex),NULL);
 	client->connection = new Connection(); //network_make_connection(dest,port);
 
+	client_ptr = client;
 	if(!client->connection){
 		// connection could not be made
 		lsp_client_close(client);
@@ -78,7 +79,7 @@ lsp_client* lsp_client_create(const char* dest, int port){
 
 //	if(network_send_connection_request(client->connection) &&
 //			network_wait_for_connection(client->connection, epoch_delay * num_epochs)){
-		if(rpc_send_conn_req(client)) {
+	if(rpc_send_conn_req(client)) {
 		pthread_mutex_lock(&(client->mutex));
 
 		// connection succeeded, build lsp_client struct
@@ -88,20 +89,19 @@ lsp_client* lsp_client_create(const char* dest, int port){
 
 		// kick off ReadThread to catch incoming messages
 		int res;
-		if((res = pthread_create(&(client->writeThread), NULL, ClientWriteThread, (void*)client)) != 0){
-			printf("Error: Failed to start the write thread: %d\n",res);
-			lsp_client_close(client);
-			return NULL;
-		}
 		if((res = pthread_create(&(client->rpcThread), NULL, ClientRpcThread, (void*)client)) != 0){
 			printf("Error: Failed to start the rpc thread: %d\n",res);
 			lsp_client_close(client);
 			return NULL;
 		}
-
+		sleep(2);
+		if((res = pthread_create(&(client->writeThread), NULL, ClientWriteThread, (void*)client)) != 0){
+			printf("Error: Failed to start the write thread: %d\n",res);
+			lsp_client_close(client);
+			return NULL;
+		}
 		pthread_mutex_unlock(&(client->mutex));
 
-		client_ptr = client;
 		return client;
 	} else {
 		// connection failed or timeout after K * delta seconds
@@ -178,6 +178,7 @@ bool lsp_client_close(lsp_client* a_client){
 		a_client->connection->status = DISCONNECTED;
 	pthread_mutex_unlock(&(a_client->mutex));
 
+	client_ptr = NULL;
 	cleanup_client(a_client);
 	return !alreadyClosed;
 }
