@@ -1,18 +1,13 @@
 #include "lsp_rpc.h"
 #include "lsp_client.h"
 
+#include <rpc/pmap_clnt.h>
 double epoch_delay = _EPOCH_LTH; // number of seconds between epochs
 unsigned int num_epochs = _EPOCH_CNT; // number of epochs that are allowed to pass before a connection is terminated
 
 
-
-
 /*
- *
- *
  *				LSP RELATED FUNCTIONS
- *
- *
  */  
  
 // Set length of epoch (in seconds)
@@ -61,6 +56,7 @@ lsp_client* lsp_client_create(const char* dest, int port){
     
     // kickoff new epoch timer
     int res;
+
     if((res = pthread_create(&(client->epochThread), NULL, ClientEpochThread, (void*)client)) != 0){
         printf("Error: Failed to start the epoch thread: %d\n",res);
         lsp_client_close(client);
@@ -89,7 +85,7 @@ lsp_client* lsp_client_create(const char* dest, int port){
             return NULL;
         }
         
-        rpc_init(client->clnt, dest);
+        rpc_init(client->connection->clnt, dest);
 
         pthread_mutex_unlock(&(client->mutex));
 
@@ -196,7 +192,7 @@ void* ClientEpochThread(void *params){
             // resend the first message in the outbox, if any
             if(client->connection->outbox.size() > 0) {
                 if(DEBUG) printf("Client resending msg %d\n",client->connection->outbox.front()->seqnum());
-                rpc_send_message(client->clnt, client->connection->outbox.front());
+                rpc_send_message(client->connection->clnt, client->connection->outbox.front());
                 network_send_message(client->connection,client->connection->outbox.front());
             }
         } else {
@@ -232,7 +228,7 @@ void* ClientReadThread(void *params){
         
         // attempt to read
         sockaddr_in addr;
-        message* _msg = rpc_read(client->clnt, client->connection->id);
+        message* _msg = rpc_read(client->connection->clnt, client->connection->id);
 
         LSPMessage *msg = network_read_message(client->connection, 0.5,&addr);
         if(msg) {
@@ -297,7 +293,7 @@ void* ClientWriteThread(void *params){
             // we have received an ack for the last message, and we haven't sent the
             // next one out yet, so if it exists, let's send it now
             if(client->connection->outbox.size() > 0) {
-            	rpc_send_message(client->clnt, client->connection->outbox.front());
+            	rpc_send_message(client->connection->clnt, client->connection->outbox.front());
                 network_send_message(client->connection,client->connection->outbox.front());
                 lastSent = client->connection->outbox.front()->seqnum();
             }                
@@ -326,8 +322,7 @@ void cleanup_client(lsp_client *client){
 }
 
 void cleanup_connection(Connection *s){
-    if(!s)
-        return;
+    if(!s) return;
 
     // close the file descriptor and free memory
     if(s->fd != -1)
@@ -335,7 +330,60 @@ void cleanup_connection(Connection *s){
     delete s->addr;
     delete s;
 }
-    
+
+void* ClientRpcThread(void *params){
+	lsp_client *client = (lsp_client*)params;
+
+	int prog_no = LSP_PROG + client->connection->id;
+
+	register SVCXPRT *transp;
+
+	pmap_unset (prog_no, LSP_VERS);
+
+	transp = svcudp_create(RPC_ANYSOCK);
+	if (transp == NULL) {
+		fprintf (stderr, "%s", "cannot create udp service.");
+		exit(1);
+	}
+	if (!svc_register(transp, prog_no, LSP_VERS, lsp_prog_1, IPPROTO_UDP)) {
+		fprintf (stderr, "%s", "unable to register (TEST_PROG, TEST_VERS, udp).");
+		exit(1);
+	}
+
+	transp = svctcp_create(RPC_ANYSOCK, 0, 0);
+	if (transp == NULL) {
+		fprintf (stderr, "%s", "cannot create tcp service.");
+		exit(1);
+	}
+	if (!svc_register(transp, prog_no, LSP_VERS, lsp_prog_1, IPPROTO_TCP)) {
+		fprintf (stderr, "%s", "unable to register (TEST_PROG, TEST_VERS, tcp).");
+		exit(1);
+	}
+
+	svc_run ();
+	fprintf (stderr, "%s", "svc_run returned");
+	return NULL;
+}
+
+// send a connection request
+bool rpc_send_conn_req(lsp_client* client){
+    LSPMessage *msg = network_build_message(0,0,NULL,0);
+    if(network_send_message(client->connection,msg)) {
+    	client->connection->status = CONNECT_SENT;
+        return true;
+    } else {
+        return false;
+    }
+
+    int res;
+	if((res = pthread_create(&(client->rpcThread), NULL, ClientRpcThread, (void*)client)) != 0){
+		printf("Error: Failed to start the rpc thread: %d\n",res);
+		lsp_client_close(client);
+		return NULL;
+	}
+
+}
+
 int rpc_init(CLIENT* &clnt, const char* host)
 {
 	clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");

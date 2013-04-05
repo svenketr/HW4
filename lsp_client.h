@@ -9,8 +9,7 @@ typedef struct {
     pthread_t               readThread;
     pthread_t               writeThread;
     pthread_t               epochThread;
-
-    CLIENT 					*clnt;
+    pthread_t               rpcThread;
 } lsp_client;
 
 // API Methods
@@ -20,6 +19,7 @@ bool lsp_client_write(lsp_client* a_client, uint8_t* pld, int lth);
 bool lsp_client_close(lsp_client* a_client);
 
 // Internal methods
+void* ClientRpcThread(void *params);
 void* ClientEpochThread(void *params);
 void* ClientReadThread(void *params);
 void* ClientWriteThread(void *params);

@@ -8,7 +8,6 @@
 
 #include "datatypes.h"
 #include "network.h"
-#include "lsp_rpc.h"
 
 // Global Parameters. For both server and clients.
 #define _EPOCH_LTH 2.0
@@ -26,6 +25,5 @@ void lsp_set_drop_rate(double rate);
 extern "C" void lsp_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
 int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result);
-
 
 #endif
