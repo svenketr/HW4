@@ -5,7 +5,7 @@
 double drop_rate = _DROP_RATE;
 
 #define PACKET_SIZE 2048
-
+/*
 Connection* network_setup_server(int port){
     Connection *conn = new Connection();
     
@@ -197,6 +197,7 @@ LSPMessage* network_unmarshal(uint8_t *buf, int buf_len){
     return msg;
 }
 
+*/
 // configure the network drop rate
 void network_set_drop_rate(double percent){
     if(percent >= 0 && percent <= 1)

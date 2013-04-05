@@ -6,7 +6,7 @@
 #include "datatypes.h"
 
 #define _DROP_RATE 0.0
-
+/*
 // build a socket and try to connect
 Connection* network_setup_server(int port);
 Connection* network_make_connection(const char *host, int port);
@@ -22,7 +22,7 @@ bool network_acknowledge(Connection *conn); // send an acknowledgement from the 
 LSPMessage* network_build_message(int is, int seq, uint8_t *pld, int len);
 uint8_t* network_marshal(LSPMessage *msg, int *packedSize);
 LSPMessage* network_unmarshal(uint8_t *buf, int buf_len);
-
+*/
 // configure the network drop rate
 void network_set_drop_rate(double percent);
 
