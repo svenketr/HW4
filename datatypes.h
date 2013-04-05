@@ -20,6 +20,7 @@
 #include <unistd.h>
 
 #include "lspmessage.pb.h"
+#include "lsp_rpc.h"
 
 typedef enum {
     DISCONNECTED, CONNECT_SENT, CONNECTED
@@ -37,6 +38,8 @@ typedef struct {
     unsigned int            lastReceivedAck;
     unsigned int            epochsSinceLastMessage;
     std::queue<LSPMessage*> outbox;
+
+    CLIENT 					*clnt;
 } Connection;
 
 #endif

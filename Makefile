@@ -4,6 +4,7 @@ DEBUG = -g
 CFLAGS = -Wall -c $(DEBUG)
 LFLAGS = $(DEBUG)
 LIBS = -lprotobuf -lpthread -lssl -lcrypto
+CMONOBJS =  lsp.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_svc.o lsp_rpc_clnt.o
 RPCGENFLAGS = -C
 
 all: pre-build $(TARGET)
@@ -11,13 +12,13 @@ all: pre-build $(TARGET)
 pre-build: rpcfiles
 	protoc --cpp_out=. lspmessage.proto
     
-request: lsp_client.o lsp.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_clnt.o
+request: lsp_client.o $(CMONOBJS)
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
-worker: lsp_client.o lsp.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_clnt.o
+worker: lsp_client.o $(CMONOBJS)
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
-server: lsp_server.o lsp.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_svc.o
+server: lsp_server.o $(CMONOBJS)
 	$(CC) $(LFLAGS) -o $@ $@.cpp $^ $(LIBS)
 
 lspmessage.pb.o: lspmessage.pb.cc

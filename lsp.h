@@ -8,7 +8,6 @@
 
 #include "datatypes.h"
 #include "network.h"
-#include "lsp_rpc.h"
 
 // Global Parameters. For both server and clients.
 #define _EPOCH_LTH 2.0
@@ -31,6 +30,7 @@ int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result
 message* rpc_acknowledge(Connection *conn);
 
 message* rpc_build_message(int id, int seq, uint8_t *pld, int len);
+
 
 
 #endif
