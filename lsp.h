@@ -27,5 +27,10 @@ extern "C" void lsp_prog_1(struct svc_req *rqstp, register SVCXPRT *transp);
 
 int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result);
 
+// acknowledge the last received message
+message* rpc_acknowledge(Connection *conn);
+
+message* rpc_build_message(int id, int seq, uint8_t *pld, int len);
+
 
 #endif

@@ -46,6 +46,13 @@ void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
 	strcpy(msg->payload, lspmsg->payload().c_str());
 }
 
+void convert_msg2lspmsg(message* msg,LSPMessage* lspmsg)
+{
+	lspmsg->set_connid(msg->connid );
+	lspmsg->set_seqnum(msg->seqnum);
+	lspmsg->set_payload(msg->payload);
+}
+
 // A global variable to hold the server information
 lsp_server *server_ptr;
 
@@ -374,15 +381,15 @@ void* ServerWriteThread(void *params){
 }
 
 
-void rpc_receive(message *msg)
+int rpc_receive(message *msg)
 {
 	char host[128];
 
 	pthread_mutex_lock(&(server_ptr->mutex));
 	if(!server_ptr->running)
-		return;
+		return -1;
 	pthread_mutex_unlock(&(server_ptr->mutex));
-
+	int connId = 0;
 	sockaddr_in addr;
 	if(msg) {
 		// we got a message, let's parse it
@@ -408,17 +415,21 @@ void rpc_receive(message *msg)
 				conn->addr = new sockaddr_in();
 				memcpy(conn->addr,&addr,sizeof(addr));
 
+				LSPMessage m;
+				convert_msg2lspmsg(rpc_acknowledge(conn), &m);
 				// send an ack for the connection request
-				//network_acknowledge(conn);
+				conn->outbox.push(&m);
 
 				// insert this connection into the list of connections
 				server_ptr->clients.insert(std::pair<int,Connection*>(conn->id,conn));
+				connId = conn->id;
 			}
 		} else {
 			if(server_ptr->clients.count(msg->connid) == 0){
 				printf("Bogus connection id received: %d, skipping message...\n",msg->connid);
 			} else {
 				Connection *conn = server_ptr->clients[msg->connid];
+				connId = msg->connid;
 
 				// reset counter for epochs since we have received a message
 				conn->epochsSinceLastMessage = 0;
@@ -440,14 +451,17 @@ void rpc_receive(message *msg)
 						conn->lastReceivedSeq++;
 						//XXX server_ptr->inbox.push(msg);
 
-						// send ack for this message
-						network_acknowledge(conn);
+						LSPMessage m;
+						convert_msg2lspmsg(rpc_acknowledge(conn), &m);
+						// send an ack for the connection request
+						conn->outbox.push(&m);
 					}
 				}
 			}
 		}
 		pthread_mutex_unlock(&(server_ptr->mutex));
 	}
+	return connId;
 }
 
 
@@ -456,7 +470,7 @@ int* receive_1_svc(message *msg, struct svc_req *rqstp)
 	static int  result ;
 
 	if(DEBUG) printf("Received on server: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
-
+	result = rpc_receive(msg);
 
 	return &result;
 }
