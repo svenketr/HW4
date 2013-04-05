@@ -381,16 +381,21 @@ void* ServerWriteThread(void *params){
 	return NULL;
 }
 
-
+/* Return values
+ * -1 --> msg was empty
+ *  0 --> server not running
+ * >0 --> actual connection id for client
+ *
+ */
 int rpc_receive(message *msg)
 {
 	char host[128];
 
 	pthread_mutex_lock(&(server_ptr->mutex));
 	if(!server_ptr->running)
-		return -1;
+		return 0;
 	pthread_mutex_unlock(&(server_ptr->mutex));
-	int connId = 0;
+	int connId = -1;
 	sockaddr_in addr;
 	if(msg) {
 		// we got a message, let's parse it
