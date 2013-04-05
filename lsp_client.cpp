@@ -31,12 +31,16 @@ void lsp_set_drop_rate(double rate){
 /*
  *				CLIENT RELATED FUNCTIONS
  */  
+
 void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
 {
 	msg->connid = lspmsg->connid();
 	msg->seqnum = lspmsg->seqnum();
 	strcpy(msg->payload, lspmsg->payload().c_str());
 }
+
+// A global variable to hold the client information
+lsp_client *client_ptr;
 
 lsp_client* lsp_client_create(const char* dest, int port){
     lsp_client *client = new lsp_client();
@@ -88,13 +92,14 @@ lsp_client* lsp_client_create(const char* dest, int port){
         rpc_init(client->connection->clnt, dest);
 
         pthread_mutex_unlock(&(client->mutex));
-
+        client_ptr = client;
         return client;
     } else {
         // connection failed or timeout after K * delta seconds
         lsp_client_close(client);
         return NULL;
     }
+
 }
 
 int lsp_client_read(lsp_client* a_client, uint8_t* pld){
@@ -326,7 +331,10 @@ void cleanup_connection(Connection *s){
 
     // close the file descriptor and free memory
     if(s->fd != -1)
+    {
+    	rpc_destroy(s->clnt);
         close(s->fd);
+    }
     delete s->addr;
     delete s;
 }
@@ -443,13 +451,41 @@ int rpc_destroy(CLIENT *clnt)
 	return 0;
 }
 
+int rpc_receive(message *msg)
+{
+	unsigned int lastSent = 0;
+
+	while(true){
+		pthread_mutex_lock(&(client_ptr->mutex));
+		Status state = client_ptr->connection->status;
+
+		if(state == DISCONNECTED)
+			break;
+
+		unsigned int nextToSend = client_ptr->connection->lastReceivedAck + 1;
+		if(nextToSend > lastSent){
+			// we have received an ack for the last message, and we haven't sent the
+			// next one out yet, so if it exists, let's send it now
+			if(client_ptr->connection->outbox.size() > 0) {
+				rpc_send_message(client_ptr->connection->clnt, client_ptr->connection->outbox.front());
+				network_send_message(client_ptr->connection,client_ptr->connection->outbox.front());
+				lastSent = client_ptr->connection->outbox.front()->seqnum();
+			}
+		}
+		pthread_mutex_unlock(&(client_ptr->mutex));
+		usleep(5000); // 5ms
+	}
+	pthread_mutex_unlock(&(client_ptr->mutex));
+	return client_ptr->connection->id;
+}
+
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
 	static int  result ;
 
 	if(DEBUG) printf("Received on client: conn: %d, seqnum: %d \n", msg->connid, msg->seqnum);
 
-
+	result = rpc_receive(msg);
 	return &result;
 }
 

@@ -368,6 +368,7 @@ void* ServerWriteThread(void *params){
 				// we have received an ack for the last message, and we haven't sent the
 				// next one out yet, so if it exists, let's send it now
 				if(conn->outbox.size() > 0) {
+					rpc_send_message(conn->clnt, conn->outbox.front());
 					network_send_message(conn,conn->outbox.front());
 					lastSent[conn->id] = conn->outbox.front()->seqnum();
 				}
@@ -413,6 +414,7 @@ int rpc_receive(message *msg)
 				conn->epochsSinceLastMessage = 0;
 				conn->fd = server_ptr->connection->fd; // send through the server's socket
 				conn->addr = new sockaddr_in();
+				rpc_init(conn->clnt,conn->id);
 				memcpy(conn->addr,&addr,sizeof(addr));
 
 				LSPMessage m;
@@ -464,6 +466,63 @@ int rpc_receive(message *msg)
 	return connId;
 }
 
+int rpc_init(CLIENT* &clnt, int connId )
+{
+	clnt = clnt_create("localhost", LSP_PROG+connId, LSP_VERS, "udp");
+	if (clnt == NULL) {
+		clnt_pcreateerror("localhost");
+		exit(1);
+	}
+	return 0;
+}
+
+message* rpc_read(CLIENT *clnt, int connid)
+{
+//    while(true){
+//    	message* inmsg = send_1(&connid, clnt);
+//    	if(inmsg != NULL)
+//    	{
+//    		/* process the message */
+//    		return inmsg;
+//    	}
+//    	usleep(10000);
+//    }
+}
+
+bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
+{
+    // sends an LSP Message
+    if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
+    		lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
+
+    message msg;
+    convert_lspmsg2msg(lspmsg, &msg);
+	rpc_write(clnt, msg);
+
+    return true;
+}
+
+
+int rpc_write(CLIENT *clnt, message& outmsg)
+{
+	int* ret_val;
+	ret_val = receive_1(&outmsg, clnt);	/* call the remote function */
+
+	/* test if the RPC succeeded */
+	if (ret_val == NULL) {
+		clnt_perror(clnt, "call failed:");
+		exit(1);
+	}
+
+	printf("rpc_write done: %d\n", *ret_val);
+	return 0;
+}
+
+int rpc_destroy(CLIENT *clnt)
+{
+	clnt_destroy( clnt );
+	return 0;
+}
 
 int* receive_1_svc(message *msg, struct svc_req *rqstp)
 {
@@ -513,7 +572,10 @@ void cleanup_connection(Connection *s){
 
 	// close the file descriptor and free memory
 	if(s->fd != -1)
+	{
+		rpc_destroy(s->clnt);
 		close(s->fd);
+	}
 	delete s->addr;
 	delete s;
 }

@@ -30,3 +30,12 @@ void* ServerEpochThread(void *params);
 void* ServerReadThread(void *params);
 void* ServerWriteThread(void *params);
 void cleanup_connection(Connection *s);
+
+
+int rpc_init(CLIENT* &clnt, int connId );
+message* rpc_read(CLIENT *clnt, int connid);
+bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg);
+int rpc_write(CLIENT *clnt, message& outmsg);
+int rpc_destroy(CLIENT *clnt);
+
+int rpc_receive(message *msg);
