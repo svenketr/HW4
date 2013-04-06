@@ -109,6 +109,7 @@ int lsp_server_read(lsp_server* a_srv, void* pld, uint32_t* conn_id){
 		if(!running)
 			break;
 		if(msg){
+			*conn_id = msg->connid;
 			// we got a message, return it
 			std::string payload(msg->payload);
 			delete msg;
