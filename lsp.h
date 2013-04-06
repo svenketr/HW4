@@ -13,6 +13,9 @@
 #define _EPOCH_LTH 2.0
 #define _EPOCH_CNT 5
 
+typedef unsigned long long timestamp_t;
+timestamp_t get_timestamp ();
+
 // Set length of epoch (in seconds)
 void lsp_set_epoch_lth(double lth);
 

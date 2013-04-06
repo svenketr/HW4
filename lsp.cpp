@@ -26,3 +26,10 @@ message* rpc_build_message(int id, int seq, uint8_t *pld, int len)
 
     return msg;
 }
+
+timestamp_t get_timestamp ()
+{
+  struct timeval now;
+  gettimeofday (&now, NULL);
+  return  now.tv_usec + (timestamp_t)now.tv_sec * 1000000;
+}
