@@ -109,6 +109,7 @@ int lsp_server_read(lsp_server* a_srv, void* pld, uint32_t* conn_id){
 		if(!running)
 			break;
 		if(msg){
+			*conn_id = msg->connid;
 			// we got a message, return it
 			std::string payload(msg->payload);
 			delete msg;
@@ -345,7 +346,8 @@ int rpc_receive(message *msg)
 						// next in the list
 						conn->lastReceivedSeq++;
 
-						server_ptr->inbox.push(msg);
+						message* msg_copy = rpc_build_message(msg);
+						server_ptr->inbox.push(msg_copy);
 
 						rpc_acknowledge(conn);
 					}
@@ -462,16 +464,9 @@ void* ServerRpcThread(void *params){
 }
 
 void cleanup_connection(Connection *s){
-	if(!s)
-		return;
+	if(!s) return;
+	rpc_destroy(s->clnt);
 
-	// close the file descriptor and free memory
-	if(s->fd != -1)
-	{
-		rpc_destroy(s->clnt);
-		close(s->fd);
-	}
-	delete s->addr;
 	delete s;
 }
 

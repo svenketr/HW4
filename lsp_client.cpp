@@ -264,14 +264,8 @@ void cleanup_client(lsp_client *client){
 void cleanup_connection(Connection *s){
 	if(!s) return;
     // close the file descriptor and free memory
-    if(s->fd != -1)
-    {
-    	rpc_destroy(s->clnt);
-        close(s->fd);
-    }
-    delete s->addr;
+	rpc_destroy(s->clnt);
     delete s;
-
 }
 
 void* ClientRpcThread(void *params){
@@ -345,7 +339,12 @@ message* rpc_acknowledge(Connection *conn){
 int rpc_write(CLIENT *clnt, message& outmsg)
 {
 	int ret_val = 0;
+	timestamp_t t0 = get_timestamp();
 	enum clnt_stat result = receive_1(&outmsg, &ret_val, clnt);	/* call the remote function */
+
+	timestamp_t t1 = get_timestamp();
+	double msecs = (t1 - t0) / 1000.0L;
+	if(DEBUG) printf("Time taken for RPC call: %lf\n", msecs);
 
 	/* test if the RPC succeeded */
 	if (result != RPC_SUCCESS) {
@@ -394,7 +393,8 @@ int rpc_receive(message *msg)
 			if(msg->seqnum == (client_ptr->connection->lastReceivedSeq + 1)){
 				// next in the list
 				client_ptr->connection->lastReceivedSeq++;
-				client_ptr->inbox.push(msg);
+				message* msg_copy = rpc_build_message(msg);
+				client_ptr->inbox.push(msg_copy);
 
 				// send ack for this message
 				rpc_acknowledge(client_ptr->connection);
