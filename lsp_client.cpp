@@ -325,19 +325,22 @@ bool rpc_send_conn_req(lsp_client* client){
 
 int rpc_init(CLIENT* &clnt, const char* host)
 {
+	int count = 0;
+	while(++count <= 100) {
+		clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
 
-	clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
-
-	if (clnt == NULL) {
-		clnt_pcreateerror(host);
-		exit(1);
+		if (clnt == NULL) {
+			clnt_pcreateerror(host);
+		}
+		else
+		{
+			struct timeval tv;
+			tv.tv_sec = 2;
+			tv.tv_usec = 0;
+			clnt_control(clnt, CLSET_TIMEOUT,(char*) &tv);
+			break;
+		}
 	}
-
-	struct timeval tv;
-	tv.tv_sec = 2;
-	tv.tv_usec = 0;
-	clnt_control(clnt, CLSET_TIMEOUT,(char*) &tv);
-
 	return 0;
 }
 
