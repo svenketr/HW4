@@ -33,25 +33,8 @@ void lsp_set_drop_rate(double rate){
 }
 
 /*
- *
- *
  *				SERVER RELATED FUNCTIONS
- *
- *
  */  
-void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
-{
-	msg->connid = lspmsg->connid();
-	msg->seqnum = lspmsg->seqnum();
-	strcpy(msg->payload, lspmsg->payload().c_str());
-}
-
-void convert_msg2lspmsg(message* msg,LSPMessage* lspmsg)
-{
-	lspmsg->set_connid(msg->connid );
-	lspmsg->set_seqnum(msg->seqnum);
-	lspmsg->set_payload(msg->payload);
-}
 
 // A global variable to hold the server information
 lsp_server *server_ptr;
@@ -153,11 +136,7 @@ bool lsp_server_write(lsp_server* a_srv, void* pld, int lth, uint32_t conn_id){
 
 	// build the message object
 
-	message *_msg = rpc_build_message(conn->id,conn->lastSentSeq,(uint8_t*)pld,lth);
-
-	LSPMessage *msg = new LSPMessage();
-	convert_msg2lspmsg(_msg, msg);
-	delete _msg;
+	message *msg = rpc_build_message(conn->id,conn->lastSentSeq,(uint8_t*)pld,lth);
 
 	// queue it up for writing
 	conn->outbox.push(msg);
@@ -235,8 +214,9 @@ void* ServerEpochThread(void *params){
 
 			// resend the first message in the outbox, if any
 			if(conn->outbox.size() > 0) {
-				if(DEBUG) printf("Server resending msg %d for conn %d\n",conn->outbox.front()->seqnum(),conn->id);
-				rpc_send_message(conn, conn->outbox.front());
+				if(DEBUG) printf("Server resending msg %d for conn %d\n",
+						conn->outbox.front()->seqnum,conn->id);
+				rpc_write(conn, *(conn->outbox.front()));
 			}
 
 			if(++(conn->epochsSinceLastMessage) >= num_epochs){
@@ -290,9 +270,9 @@ void* ServerWriteThread(void *params){
 				// we have received an ack for the last message, and we haven't sent the
 				// next one out yet, so if it exists, let's send it now
 				if(conn->outbox.size() > 0) {
-					rpc_send_message(conn, conn->outbox.front());
+					rpc_write(conn, *(conn->outbox.front()));
 					//					network_send_message(conn,conn->outbox.front());
-					lastSent[conn->id] = conn->outbox.front()->seqnum();
+					lastSent[conn->id] = conn->outbox.front()->seqnum;
 				}
 			}
 		}
@@ -354,7 +334,7 @@ int rpc_receive(message *msg)
 					if(DEBUG) printf("Server received an ACK for conn %d msg %d\n",msg->connid,msg->seqnum);
 					if(msg->seqnum == (conn->lastReceivedAck + 1))
 						conn->lastReceivedAck = msg->seqnum;
-					if(conn->outbox.size() > 0 && msg->seqnum == conn->outbox.front()->seqnum()) {
+					if(conn->outbox.size() > 0 && msg->seqnum == conn->outbox.front()->seqnum) {
 						delete conn->outbox.front();
 						conn->outbox.pop();
 					}
@@ -392,17 +372,6 @@ message* rpc_acknowledge(Connection *conn){
 	message *msg = rpc_build_message(conn->id,conn->lastReceivedSeq,NULL,0);
 	rpc_write(conn, *msg);
 	return msg;
-}
-
-bool rpc_send_message(Connection* conn, LSPMessage *lspmsg)
-{
-	// sends an LSP Message
-	if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
-			lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
-
-	message msg;
-	convert_lspmsg2msg(lspmsg, &msg);
-	return rpc_write(conn, msg) != 0;
 }
 
 int rpc_write(Connection* conn, message& outmsg)

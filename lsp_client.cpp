@@ -32,20 +32,6 @@ void lsp_set_drop_rate(double rate){
  *				CLIENT RELATED FUNCTIONS
  */  
 
-void convert_lspmsg2msg(LSPMessage* lspmsg, message* msg)
-{
-	msg->connid = lspmsg->connid();
-	msg->seqnum = lspmsg->seqnum();
-	strcpy(msg->payload, lspmsg->payload().c_str());
-}
-
-void convert_msg2lspmsg(message* msg,LSPMessage* lspmsg)
-{
-	lspmsg->set_connid(msg->connid );
-	lspmsg->set_seqnum(msg->seqnum);
-	lspmsg->set_payload(msg->payload);
-}
-
 // A global variable to hold the client information
 lsp_client *client_ptr;
 
@@ -154,10 +140,7 @@ bool lsp_client_write(lsp_client* a_client, uint8_t* pld, int lth){
 	if(DEBUG) printf("Client queueing msg %d for write\n",a_client->connection->lastSentSeq);
 
 	// build the message
-	message *_msg = rpc_build_message(a_client->connection->id,a_client->connection->lastSentSeq,pld,lth);
-    LSPMessage *msg = new LSPMessage();
-    convert_msg2lspmsg(_msg, msg);
-    delete _msg;
+	message *msg = rpc_build_message(a_client->connection->id,a_client->connection->lastSentSeq,pld,lth);
 
 	// queue it up
 	a_client->connection->outbox.push(msg);
@@ -207,8 +190,8 @@ void* ClientEpochThread(void *params){
 
 			// resend the first message in the outbox, if any
 			if(client->connection->outbox.size() > 0) {
-				if(DEBUG) printf("Client resending msg %d\n",client->connection->outbox.front()->seqnum());
-				rpc_send_message(client->connection->clnt, client->connection->outbox.front());
+				if(DEBUG) printf("Client resending msg %d\n",client->connection->outbox.front()->seqnum);
+				rpc_write(client->connection->clnt, *(client->connection->outbox.front()));
 			}
 		} else {
 			if(DEBUG) printf("Unexpected client status: %d\n",client->connection->status);
@@ -251,8 +234,8 @@ void* ClientWriteThread(void *params){
 			// we have received an ack for the last message, and we haven't sent the
 			// next one out yet, so if it exists, let's send it now
 			if(client->connection->outbox.size() > 0) {
-				rpc_send_message(client->connection->clnt, client->connection->outbox.front());
-				lastSent = client->connection->outbox.front()->seqnum();
+				rpc_write(client->connection->clnt, *(client->connection->outbox.front()));
+				lastSent = client->connection->outbox.front()->seqnum;
 			}
 		}
 		pthread_mutex_unlock(&(client->mutex));
@@ -359,20 +342,6 @@ message* rpc_acknowledge(Connection *conn){
     return msg;
 }
 
-bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
-{
-	// sends an LSP Message
-	if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
-			lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
-
-	message msg;
-	convert_lspmsg2msg(lspmsg, &msg);
-	rpc_write(clnt, msg);
-
-	return true;
-}
-
-
 int rpc_write(CLIENT *clnt, message& outmsg)
 {
 	int ret_val = 0;
@@ -414,7 +383,8 @@ int rpc_receive(message *msg)
 				// this sequence number is next in line, even if it overflows
 				client_ptr->connection->lastReceivedAck = msg->seqnum;
 			}
-			if(client_ptr->connection->outbox.size() > 0 && msg->seqnum == client_ptr->connection->outbox.front()->seqnum()) {
+			if(client_ptr->connection->outbox.size() > 0 &&
+					msg->seqnum == client_ptr->connection->outbox.front()->seqnum) {
 				delete client_ptr->connection->outbox.front();
 				client_ptr->connection->outbox.pop();
 			}

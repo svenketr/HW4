@@ -38,7 +38,7 @@ typedef struct {
     unsigned int            lastReceivedSeq;
     unsigned int            lastReceivedAck;
     unsigned int            epochsSinceLastMessage;
-    std::queue<LSPMessage*> outbox;
+    std::queue<message*> outbox;
 
     CLIENT 					*clnt;
 } Connection;
