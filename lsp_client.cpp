@@ -312,34 +312,35 @@ void* ClientRpcThread(void *params){
 bool rpc_send_conn_req(lsp_client* client){
 	message *msg = rpc_build_message(0, 0, NULL, 0);
 	client->connection->status = CONNECT_SENT;
-	int conn_id = rpc_write(client->connection->clnt, *msg);
+	int count = 0;
 
-	if(conn_id <= 0)
+	while(++count <= 10)
 	{
-		return (false);
+		int conn_id = rpc_write(client->connection->clnt, *msg);
+		if(conn_id > 0)
+		{
+			client->connection->id = conn_id;
+			return true;
+		}
 	}
 
-	client->connection->id = conn_id;
-	return true;
+	return false;
 }
 
 int rpc_init(CLIENT* &clnt, const char* host)
 {
 	int count = 0;
-	while(++count <= 100) {
-		clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
+	clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
 
-		if (clnt == NULL) {
-			clnt_pcreateerror(host);
-		}
-		else
-		{
-			struct timeval tv;
-			tv.tv_sec = 2;
-			tv.tv_usec = 0;
-			clnt_control(clnt, CLSET_TIMEOUT,(char*) &tv);
-			break;
-		}
+	if (clnt == NULL) {
+		clnt_pcreateerror(host);
+	}
+	else
+	{
+		struct timeval tv;
+		tv.tv_sec = 2;
+		tv.tv_usec = 0;
+		clnt_control(clnt, CLSET_TIMEOUT,(char*) &tv);
 	}
 	return 0;
 }
