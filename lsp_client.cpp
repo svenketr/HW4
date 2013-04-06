@@ -248,8 +248,8 @@ void* ClientWriteThread(void *params){
 void cleanup_client(lsp_client *client){
 	// wait for threads to close
 	void *status;
-	if(client->readThread)
-		pthread_join(client->readThread,&status);
+	if(client->rpcThread)
+		pthread_join(client->rpcThread,&status);
 	if(client->writeThread)
 		pthread_join(client->writeThread,&status);
 	if(client->epochThread)
