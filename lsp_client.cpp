@@ -115,7 +115,7 @@ int lsp_client_read(lsp_client* a_client, uint8_t* pld){
 	while(true){
 		pthread_mutex_lock(&(a_client->mutex));
 		Status s = a_client->connection->status;
-		LSPMessage *msg = NULL;
+		message *msg = NULL;
 		if(s == CONNECTED) {
 			// try to pop a message off of the inbox queue
 			if(a_client->inbox.size() > 0){
@@ -129,7 +129,7 @@ int lsp_client_read(lsp_client* a_client, uint8_t* pld){
 
 		// we got a message, so return it
 		if(msg){
-			std::string payload = msg->payload();
+			std::string payload(msg->payload);
 			delete msg;
 			memcpy(pld,payload.c_str(),payload.length()+1);
 			return payload.length();
@@ -398,34 +398,30 @@ int rpc_destroy(CLIENT *clnt)
 	return 0;
 }
 
-int rpc_receive(message *_msg)
+int rpc_receive(message *msg)
 {
-
-    LSPMessage *msg = new LSPMessage();
-    convert_msg2lspmsg(_msg, msg);
-
-	if(msg->connid() == client_ptr->connection->id){
+	if(msg->connid == client_ptr->connection->id){
 		pthread_mutex_lock(&(client_ptr->mutex));
 
 		// reset counter for epochs since we have received a message
 
 		client_ptr->connection->epochsSinceLastMessage = 0;
 
-		if(msg->payload().length() == 0){
+		if(strlen(msg->payload) == 0){
 			// we received an ACK
-			if(DEBUG) printf("Client received an ACK for msg %d\n",msg->seqnum());
-			if(msg->seqnum() == (client_ptr->connection->lastReceivedAck + 1)){
+			if(DEBUG) printf("Client received an ACK for msg %d\n",msg->seqnum);
+			if(msg->seqnum == (client_ptr->connection->lastReceivedAck + 1)){
 				// this sequence number is next in line, even if it overflows
-				client_ptr->connection->lastReceivedAck = msg->seqnum();
+				client_ptr->connection->lastReceivedAck = msg->seqnum;
 			}
-			if(client_ptr->connection->outbox.size() > 0 && msg->seqnum() == client_ptr->connection->outbox.front()->seqnum()) {
+			if(client_ptr->connection->outbox.size() > 0 && msg->seqnum == client_ptr->connection->outbox.front()->seqnum()) {
 				delete client_ptr->connection->outbox.front();
 				client_ptr->connection->outbox.pop();
 			}
 		} else {
 			// data packet
-			if(DEBUG) printf("Client received msg %d\n",msg->seqnum());
-			if(msg->seqnum() == (client_ptr->connection->lastReceivedSeq + 1)){
+			if(DEBUG) printf("Client received msg %d\n",msg->seqnum);
+			if(msg->seqnum == (client_ptr->connection->lastReceivedSeq + 1)){
 				// next in the list
 				client_ptr->connection->lastReceivedSeq++;
 				client_ptr->inbox.push(msg);

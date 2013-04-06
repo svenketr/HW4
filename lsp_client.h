@@ -4,7 +4,7 @@
 
 typedef struct {
     Connection              *connection;
-    std::queue<LSPMessage*> inbox;
+    std::queue<message*> inbox;
     pthread_mutex_t         mutex;
     pthread_t               readThread;
     pthread_t               writeThread;
