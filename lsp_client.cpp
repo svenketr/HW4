@@ -332,7 +332,7 @@ void* ClientRpcThread(void *params){
 // send a connection request
 bool rpc_send_conn_req(lsp_client* client){
 	message *msg = rpc_build_message(0, 0, NULL, 0);
-
+	client->connection->status = CONNECT_SENT;
 	int conn_id = rpc_write(client->connection->clnt, *msg);
 
 	if(conn_id <= 0)

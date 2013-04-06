@@ -91,12 +91,12 @@ lsp_server* lsp_server_create(int port){
 		return NULL;
 	}
 
-//	// create the read/write threads listening on a certain port
-//	if((res = pthread_create(&(server->readThread), NULL, ServerReadThread, (void*)server)) != 0){
-//		printf("Error: Failed to start the epoch thread: %d\n",res);
-//		lsp_server_close(server,0);
-//		return NULL;
-//	}
+	//	// create the read/write threads listening on a certain port
+	//	if((res = pthread_create(&(server->readThread), NULL, ServerReadThread, (void*)server)) != 0){
+	//		printf("Error: Failed to start the epoch thread: %d\n",res);
+	//		lsp_server_close(server,0);
+	//		return NULL;
+	//	}
 	if((res = pthread_create(&(server->writeThread), NULL, ServerWriteThread, (void*)server)) != 0){
 		printf("Error: Failed to start the write thread: %d\n",res);
 		lsp_server_close(server,0);
@@ -248,9 +248,9 @@ void* ServerEpochThread(void *params){
 
 				// place a "disconnected" message in the queue to notify the client
 				message *_msg = rpc_build_message(conn->id,0,NULL,0);
-			    LSPMessage *msg = new LSPMessage();
-			    convert_msg2lspmsg(_msg, msg);
-			    delete _msg;
+				LSPMessage *msg = new LSPMessage();
+				convert_msg2lspmsg(_msg, msg);
+				delete _msg;
 
 				server->inbox.push(msg);
 			}
@@ -296,7 +296,7 @@ void* ServerWriteThread(void *params){
 				// next one out yet, so if it exists, let's send it now
 				if(conn->outbox.size() > 0) {
 					rpc_send_message(conn, conn->outbox.front());
-//					network_send_message(conn,conn->outbox.front());
+					//					network_send_message(conn,conn->outbox.front());
 					lastSent[conn->id] = conn->outbox.front()->seqnum();
 				}
 			}
@@ -316,8 +316,6 @@ void* ServerWriteThread(void *params){
  */
 int rpc_receive(message *msg)
 {
-	char host[128];
-
 	pthread_mutex_lock(&(server_ptr->mutex));
 	if(!server_ptr->running)
 	{
@@ -326,34 +324,26 @@ int rpc_receive(message *msg)
 	}
 	pthread_mutex_unlock(&(server_ptr->mutex));
 	int connId = -1;
-	sockaddr_in addr;
 	if(msg) {
 		// we got a message, let's parse it
 		pthread_mutex_lock(&(server_ptr->mutex));
 		if(msg->connid == 0 && msg->seqnum == 0 && strlen(msg->payload) == 0){
 			// connection request, if first time, make the connection
-			sprintf(host,"%s:%d",inet_ntoa(addr.sin_addr),addr.sin_port);
-			if(server_ptr->connections.count(host) == 0){
-				// this is the first time we've seen this host, add it to the server's list of seen hosts
-				server_ptr->connections.insert(host);
 
-				if(DEBUG) printf("Connection request received from %s\n",host);
+			// build up the new connection object
+			Connection *conn = new Connection();
+			conn->clnt = NULL;
+			conn->status = CONNECTED;
+			conn->id = server_ptr->nextConnID;
+			server_ptr->nextConnID++;
+			conn->lastSentSeq = 0;
+			conn->lastReceivedSeq = 0;
+			conn->epochsSinceLastMessage = 0;
+			conn->fd = server_ptr->connection->fd; // send through the server's socket
 
-				// build up the new connection object
-				Connection *conn = new Connection();
-				conn->clnt = NULL;
-				conn->status = CONNECTED;
-				conn->id = server_ptr->nextConnID;
-				server_ptr->nextConnID++;
-				conn->lastSentSeq = 0;
-				conn->lastReceivedSeq = 0;
-				conn->epochsSinceLastMessage = 0;
-				conn->fd = server_ptr->connection->fd; // send through the server's socket
-
-				// insert this connection into the list of connections
-				server_ptr->clients.insert(std::pair<int,Connection*>(conn->id,conn));
-				connId = conn->id;
-			}
+			// insert this connection into the list of connections
+			server_ptr->clients.insert(std::pair<int,Connection*>(conn->id,conn));
+			connId = conn->id;
 		} else {
 			if(server_ptr->clients.count(msg->connid) == 0){
 				printf("Bogus connection id received: %d, skipping message...\n",msg->connid);
@@ -380,9 +370,9 @@ int rpc_receive(message *msg)
 						// next in the list
 						conn->lastReceivedSeq++;
 
-                        LSPMessage *_msg = new LSPMessage();
-                        convert_msg2lspmsg(msg, _msg);
-                        server_ptr->inbox.push(_msg);
+						LSPMessage *_msg = new LSPMessage();
+						convert_msg2lspmsg(msg, _msg);
+						server_ptr->inbox.push(_msg);
 
 						rpc_acknowledge(conn);
 					}
@@ -401,26 +391,24 @@ int rpc_init(Connection* conn, int connId )
 		if(DEBUG) printf("rpc_init:: connid: %d, prog_no: %d\n", connId, LSP_PROG + connId);
 		conn->clnt = clnt_create("localhost", LSP_PROG + connId, LSP_VERS, "udp");
 		if (DEBUG && conn->clnt == NULL) printf("rpc_init:: failed\n");
-//		++(conn->epochsSinceLastMessage);
-//		clnt_pcreateerror("localhost");
 	}
 	return 0;
 }
 
 message* rpc_acknowledge(Connection *conn){
-    message *msg = rpc_build_message(conn->id,conn->lastReceivedSeq,NULL,0);
-    rpc_write(conn, *msg);
-    return msg;
+	message *msg = rpc_build_message(conn->id,conn->lastReceivedSeq,NULL,0);
+	rpc_write(conn, *msg);
+	return msg;
 }
 
 bool rpc_send_message(Connection* conn, LSPMessage *lspmsg)
 {
-    // sends an LSP Message
-    if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
-    		lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
+	// sends an LSP Message
+	if(DEBUG) printf("RPC:: Sending message (%d,%d,\"%s\")\n",
+			lspmsg->connid(),lspmsg->seqnum(),lspmsg->payload().c_str());
 
-    message msg;
-    convert_lspmsg2msg(lspmsg, &msg);
+	message msg;
+	convert_lspmsg2msg(lspmsg, &msg);
 	return rpc_write(conn, msg) != 0;
 }
 
@@ -477,7 +465,7 @@ int* receive_1_svc(message *msg, struct svc_req *rqstp)
 
 
 void* ServerRpcThread(void *params){
-//	lsp_server *server = (lsp_server*)params;
+	//	lsp_server *server = (lsp_server*)params;
 	register SVCXPRT *transp;
 
 	pmap_unset (LSP_PROG, LSP_VERS);
