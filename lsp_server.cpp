@@ -416,18 +416,24 @@ int rpc_write(Connection* conn, message& outmsg)
 {
 
 	rpc_init(conn, outmsg.connid);
-	int* ret_val = NULL;
+	int ret_val = 0;
 	if(conn->clnt)
 	{
-		ret_val = receive_1(&outmsg, conn->clnt);	/* call the remote function */
+		enum clnt_stat result = receive_1(&outmsg, &ret_val, conn->clnt);	/* call the remote function */
 		/* test if the RPC succeeded */
-		if (ret_val == NULL) {
-			clnt_perror(conn->clnt, "call failed:");
+		if (result != RPC_SUCCESS) {
+			clnt_perror(conn->clnt, "RPC Call failed from Server:");
+			if(DEBUG) {
+				printf("outmsg: conn: %d, seqnum: %d pld: %s \n",
+					outmsg.connid, outmsg.seqnum, outmsg.payload);
+				printf("ret_val: %d", ret_val);
+			}
+
 			return 0;
 		}
-		if(ret_val && DEBUG) printf("rpc_write done: %d\n", *ret_val);
+		if(DEBUG) printf("rpc_write done: %d\n", ret_val);
 	}
-	return ret_val == NULL? 0 : *ret_val;
+	return ret_val;
 }
 
 int rpc_destroy(CLIENT *clnt)
@@ -442,25 +448,23 @@ void* rpc_acknowledge_async(void *params){
 	return NULL;
 }
 
-int* receive_1_svc(message *msg, struct svc_req *rqstp)
+bool_t receive_1_svc(message *msg, int* result, struct svc_req *rqstp)
 {
-	static int  result ;
-
 	if(DEBUG) printf("Received on server: conn: %d, seqnum: %d pld: %s \n",
 			msg->connid, msg->seqnum, msg->payload);
 
 	pthread_t t;
-	result = rpc_receive(msg);
+	*result = rpc_receive(msg);
 	if (msg->connid == 0 && msg->seqnum == 0 && strlen(msg->payload) == 0)
 	{
 		int res;
-		if((res = pthread_create(&t, NULL, rpc_acknowledge_async, (void*) &result)) != 0){
+		if((res = pthread_create(&t, NULL, rpc_acknowledge_async, (void*) result)) != 0){
 			printf("Error: Failed to start the rpc_acknowledge_async thread: %d\n",res);
-			return NULL;
+			return false;
 		}
 	}
 
-	return &result;
+	return true;
 }
 
 

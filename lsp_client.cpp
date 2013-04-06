@@ -178,7 +178,6 @@ bool lsp_client_close(lsp_client* a_client){
 		a_client->connection->status = DISCONNECTED;
 	pthread_mutex_unlock(&(a_client->mutex));
 
-	client_ptr = NULL;
 	cleanup_client(a_client);
 	return !alreadyClosed;
 }
@@ -376,17 +375,21 @@ bool rpc_send_message(CLIENT *clnt, LSPMessage *lspmsg)
 
 int rpc_write(CLIENT *clnt, message& outmsg)
 {
-	int* ret_val;
-	ret_val = receive_1(&outmsg, clnt);	/* call the remote function */
+	int ret_val = 0;
+	enum clnt_stat result = receive_1(&outmsg, &ret_val, clnt);	/* call the remote function */
 
 	/* test if the RPC succeeded */
-	if (ret_val == NULL) {
-		clnt_perror(clnt, "call failed:");
-		exit(1);
+	if (result != RPC_SUCCESS) {
+		clnt_perror(clnt, "RPC Call failed on client:");
+		if(DEBUG) {
+			printf("outmsg: conn: %d, seqnum: %d pld: %s \n",
+				outmsg.connid, outmsg.seqnum, outmsg.payload);
+			printf("ret_val: %d\n", ret_val);
+		}
 	}
-
-	printf("rpc_write done: %d\n", *ret_val);
-	return *ret_val;
+	else
+		printf("rpc_write done: %d\n", ret_val);
+	return ret_val;
 }
 
 int rpc_destroy(CLIENT *clnt)
@@ -437,14 +440,12 @@ int rpc_receive(message *_msg)
 	return 0;
 }
 
-int* receive_1_svc(message *msg, struct svc_req *rqstp)
+bool_t receive_1_svc(message *msg, int* result, struct svc_req *rqstp)
 {
-	static int  result ;
-
 	if(DEBUG) printf("Received on client: conn: %d, seqnum: %d pld: %s \n",
 			msg->connid, msg->seqnum, msg->payload);
 
-	result = rpc_receive(msg);
-	return &result;
+	*result = rpc_receive(msg);
+	return true;
 }
 

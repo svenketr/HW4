@@ -5,7 +5,7 @@ CFLAGS = -Wall -c $(DEBUG)
 LFLAGS = $(DEBUG)
 LIBS = -lprotobuf -lpthread -lssl -lcrypto
 CMONOBJS =  lsp.o lspmessage.pb.o network.o lsp_rpc_xdr.o lsp_rpc_svc.o lsp_rpc_clnt.o
-RPCGENFLAGS = -C
+RPCGENFLAGS = -C -M
 
 all: pre-build $(TARGET)
 
