@@ -175,7 +175,6 @@ void* ClientEpochThread(void *params){
 		if(DEBUG) printf("Client epoch handler waking up \n");
 
 		// epoch is happening; send required messages
-		pthread_mutex_lock(&(client->mutex));
 		if(client->connection->status == DISCONNECTED)
 			break;
 
@@ -197,6 +196,7 @@ void* ClientEpochThread(void *params){
 			if(DEBUG) printf("Unexpected client status: %d\n",client->connection->status);
 		}
 
+		pthread_mutex_lock(&(client->mutex));
 		if(++(client->connection->epochsSinceLastMessage) >= num_epochs){
 			// oops, we haven't heard from the server in a while;
 			// mark the connection as disconnected
@@ -322,11 +322,19 @@ bool rpc_send_conn_req(lsp_client* client){
 
 int rpc_init(CLIENT* &clnt, const char* host)
 {
+
 	clnt = clnt_create(host, LSP_PROG, LSP_VERS, "udp");
+
 	if (clnt == NULL) {
 		clnt_pcreateerror(host);
 		exit(1);
 	}
+
+	struct timeval tv;
+	tv.tv_sec = 2;
+	tv.tv_usec = 0;
+	clnt_control(clnt, CLSET_TIMEOUT,(char*) &tv);
+
 	return 0;
 }
 
@@ -396,8 +404,11 @@ int rpc_receive(message *msg)
 				message* msg_copy = rpc_build_message(msg);
 				client_ptr->inbox.push(msg_copy);
 
+				pthread_mutex_unlock(&(client_ptr->mutex));
 				// send ack for this message
 				rpc_acknowledge(client_ptr->connection);
+
+				pthread_mutex_lock(&(client_ptr->mutex));
 			}
 		}
 

@@ -209,6 +209,7 @@ void* ServerEpochThread(void *params){
 			if(conn->status == DISCONNECTED)
 				continue;
 
+			pthread_mutex_unlock(&(server->mutex));
 			// send ACK for most recent message
 			if(DEBUG) printf("Server acknowledging last received message %d for conn %d\n",conn->lastReceivedSeq,conn->id);
 			rpc_acknowledge(conn);
@@ -219,6 +220,8 @@ void* ServerEpochThread(void *params){
 						conn->outbox.front()->seqnum,conn->id);
 				rpc_write(conn, *(conn->outbox.front()));
 			}
+
+			pthread_mutex_lock(&(server->mutex));
 
 			if(++(conn->epochsSinceLastMessage) >= num_epochs){
 				// oops, we haven't heard from the client in a while;
@@ -349,7 +352,16 @@ int rpc_receive(message *msg)
 						message* msg_copy = rpc_build_message(msg);
 						server_ptr->inbox.push(msg_copy);
 
+						pthread_mutex_unlock(&(server_ptr->mutex));
+
+						timestamp_t t0 = get_timestamp();
 						rpc_acknowledge(conn);
+
+						timestamp_t t1 = get_timestamp();
+						double msecs = (t1 - t0) / 1000.0L;
+						if(DEBUG) printf("rpc_receive::Time taken to ack: %lf\n", msecs);
+
+						pthread_mutex_lock(&(server_ptr->mutex));
 					}
 				}
 			}
@@ -366,6 +378,14 @@ int rpc_init(Connection* conn, int connId )
 		if(DEBUG) printf("rpc_init:: connid: %d, prog_no: %d\n", connId, LSP_PROG + connId);
 		conn->clnt = clnt_create("localhost", LSP_PROG + connId, LSP_VERS, "udp");
 		if (DEBUG && conn->clnt == NULL) printf("rpc_init:: failed\n");
+
+		if (conn->clnt != NULL) {
+
+			struct timeval tv;
+			tv.tv_sec = 4;
+			tv.tv_usec = 0;
+			clnt_control(conn->clnt, CLSET_TIMEOUT,(char*) &tv);
+		}
 	}
 	return 0;
 }
@@ -414,6 +434,8 @@ void* rpc_acknowledge_async(void *params){
 
 bool_t receive_1_svc(message *msg, int* result, struct svc_req *rqstp)
 {
+	timestamp_t t0 = get_timestamp();
+
 	if(DEBUG) printf("Received on server: conn: %d, seqnum: %d pld: %s \n",
 			msg->connid, msg->seqnum, msg->payload);
 
@@ -427,6 +449,9 @@ bool_t receive_1_svc(message *msg, int* result, struct svc_req *rqstp)
 			return false;
 		}
 	}
+	timestamp_t t1 = get_timestamp();
+	double msecs = (t1 - t0) / 1000.0L;
+	if(DEBUG) printf("Time taken for RPC call: %lf\n", msecs);
 
 	return true;
 }
