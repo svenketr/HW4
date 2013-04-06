@@ -158,7 +158,11 @@ bool lsp_client_close(lsp_client* a_client){
 	pthread_mutex_lock(&(a_client->mutex));
 	bool alreadyClosed = (a_client->connection && a_client->connection->status == DISCONNECTED);
 	if(a_client->connection)
+	{
 		a_client->connection->status = DISCONNECTED;
+//		if(client->rpcThread)
+//			pthread_join(client->rpcThread,&status);
+	}
 	pthread_mutex_unlock(&(a_client->mutex));
 
 	cleanup_client(a_client);
@@ -249,14 +253,13 @@ void cleanup_client(lsp_client *client){
 	// wait for threads to close
 	void *status;
 	if(client->rpcThread)
-		pthread_join(client->rpcThread,&status);
+		pthread_cancel(client->rpcThread);
 	if(client->writeThread)
-		pthread_join(client->writeThread,&status);
+		pthread_cancel(client->writeThread);
 	if(client->epochThread)
-		pthread_join(client->epochThread,&status);
-
+		pthread_cancel(client->epochThread);
+	pthread_mutex_unlock(&(client->mutex));
 	// cleanup the memory and connection
-	pthread_mutex_destroy(&(client->mutex));
 	cleanup_connection(client->connection);
 	delete client;
 }
