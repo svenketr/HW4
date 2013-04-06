@@ -10,6 +10,12 @@ int lsp_prog_1_freeresult (SVCXPRT *transp, xdrproc_t xdr_result, caddr_t result
     return 1;
 }
 
+message* rpc_build_message(const message* msg)
+{
+	return rpc_build_message(msg->connid, msg->seqnum,
+			(uint8_t *) msg->payload, strlen(msg->payload) + 1);
+}
+
 message* rpc_build_message(int id, int seq, uint8_t *pld, int len)
 {
     message *msg = new message();

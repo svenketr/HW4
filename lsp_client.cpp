@@ -264,14 +264,8 @@ void cleanup_client(lsp_client *client){
 void cleanup_connection(Connection *s){
 	if(!s) return;
     // close the file descriptor and free memory
-    if(s->fd != -1)
-    {
-    	rpc_destroy(s->clnt);
-        close(s->fd);
-    }
-    delete s->addr;
+	rpc_destroy(s->clnt);
     delete s;
-
 }
 
 void* ClientRpcThread(void *params){
@@ -394,7 +388,8 @@ int rpc_receive(message *msg)
 			if(msg->seqnum == (client_ptr->connection->lastReceivedSeq + 1)){
 				// next in the list
 				client_ptr->connection->lastReceivedSeq++;
-				client_ptr->inbox.push(msg);
+				message* msg_copy = rpc_build_message(msg);
+				client_ptr->inbox.push(msg_copy);
 
 				// send ack for this message
 				rpc_acknowledge(client_ptr->connection);
