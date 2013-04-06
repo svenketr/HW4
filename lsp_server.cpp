@@ -114,7 +114,7 @@ int lsp_server_read(lsp_server* a_srv, void* pld, uint32_t* conn_id){
 	while(true){
 		pthread_mutex_lock(&(a_srv->mutex));
 		bool running = a_srv->running;
-		LSPMessage *msg = NULL;
+		message *msg = NULL;
 		if(running) {
 			// try to pop a message from the inbox queue
 			if(a_srv->inbox.size() > 0){
@@ -127,8 +127,7 @@ int lsp_server_read(lsp_server* a_srv, void* pld, uint32_t* conn_id){
 			break;
 		if(msg){
 			// we got a message, return it
-			std::string payload = msg->payload();
-			*conn_id = msg->connid();
+			std::string payload(msg->payload);
 			delete msg;
 			memcpy(pld,payload.c_str(),payload.length()+1);
 			return payload.length();
@@ -247,11 +246,7 @@ void* ServerEpochThread(void *params){
 				conn->status = DISCONNECTED;
 
 				// place a "disconnected" message in the queue to notify the client
-				message *_msg = rpc_build_message(conn->id,0,NULL,0);
-				LSPMessage *msg = new LSPMessage();
-				convert_msg2lspmsg(_msg, msg);
-				delete _msg;
-
+				message *msg = rpc_build_message(conn->id,0,NULL,0);
 				server->inbox.push(msg);
 			}
 		}
@@ -370,9 +365,7 @@ int rpc_receive(message *msg)
 						// next in the list
 						conn->lastReceivedSeq++;
 
-						LSPMessage *_msg = new LSPMessage();
-						convert_msg2lspmsg(msg, _msg);
-						server_ptr->inbox.push(_msg);
+						server_ptr->inbox.push(msg);
 
 						rpc_acknowledge(conn);
 					}
