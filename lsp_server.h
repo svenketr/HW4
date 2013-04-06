@@ -34,7 +34,6 @@ void cleanup_connection(Connection *s);
 
 int rpc_init(Connection* conn, int connId );
 message* rpc_read(CLIENT *clnt, int connid);
-bool rpc_send_message(Connection* conn, LSPMessage *lspmsg);
 int rpc_write(Connection* conn, message& outmsg);
 int rpc_destroy(CLIENT *clnt);
 

@@ -20,7 +20,8 @@
 #include <unistd.h>
 #include <assert.h>
 
-#include "lspmessage.pb.h"
+#include <string>
+
 #include "lsp_rpc.h"
 
 typedef enum {
